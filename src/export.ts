@@ -1,6 +1,6 @@
 import { App, Notice, TFile, moment, normalizePath } from "obsidian";
 import { SpiralEntry, kindInfo, KINDS } from "./types";
-import { getEntries, triggerCounts, factorCounts, ensureFolder } from "./store";
+import { getEntries, triggerCounts, factorCounts, sensoryCounts, ensureFolder } from "./store";
 import type { SpiralLoggerSettings } from "./settings";
 
 function csvCell(value: string | number): string {
@@ -16,6 +16,7 @@ export function entriesToCsv(entries: SpiralEntry[]): string {
 		"kind",
 		"severity",
 		"trigger",
+		"sensory",
 		"warning_signs",
 		"thoughts",
 		"duration_min",
@@ -31,6 +32,7 @@ export function entriesToCsv(entries: SpiralEntry[]): string {
 			e.kind,
 			e.severity,
 			e.trigger,
+			e.sensory,
 			e.warning_signs,
 			e.thoughts,
 			e.duration_min,
@@ -74,6 +76,17 @@ export function buildSummaryMarkdown(entries: SpiralEntry[]): string {
 		lines.push("## Triggers", "");
 		lines.push("| Trigger | Times logged |", "| --- | ---: |");
 		for (const { trigger, count } of triggers.slice(0, 20)) {
+			lines.push(`| ${trigger} | ${count} |`);
+		}
+		lines.push("");
+	}
+
+	// Sensory issues
+	const sensory = sensoryCounts(entries);
+	if (sensory.length > 0) {
+		lines.push("## Sensory issues", "");
+		lines.push("| Sensory issue | Times logged |", "| --- | ---: |");
+		for (const { trigger, count } of sensory.slice(0, 20)) {
 			lines.push(`| ${trigger} | ${count} |`);
 		}
 		lines.push("");

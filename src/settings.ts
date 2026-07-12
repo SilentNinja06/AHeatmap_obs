@@ -12,6 +12,7 @@ export interface SpiralLoggerSettings {
 	dailyNoteMarker: string;
 	knownTriggers: string[];
 	knownFactors: string[];
+	knownSensory: string[];
 	heatmapWeeks: number;
 }
 
@@ -34,6 +35,16 @@ export const DEFAULT_SETTINGS: SpiralLoggerSettings = {
 		"too hot / too cold",
 		"illness or pain",
 		"routine disrupted",
+	],
+	knownSensory: [
+		"bright / fluorescent light",
+		"loud noise",
+		"sudden sounds",
+		"background chatter",
+		"strong smells",
+		"clothing texture / tags",
+		"unexpected touch",
+		"food texture",
 	],
 	heatmapWeeks: 20,
 };
@@ -184,6 +195,22 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.rows = 6;
+			});
+
+		new Setting(containerEl)
+			.setName("Sensory sensitivities")
+			.setDesc("Your maintained list of sensory things that are problematic — this is its own dataset, separate from triggers. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.")
+			.addTextArea((text) => {
+				text.setPlaceholder("bright / fluorescent light\nloud noise\nclothing texture / tags")
+					.setValue(this.plugin.settings.knownSensory.join("\n"))
+					.onChange(async (value) => {
+						this.plugin.settings.knownSensory = value
+							.split("\n")
+							.map((t) => t.trim())
+							.filter((t) => t.length > 0);
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.rows = 8;
 			});
 
 		new Setting(containerEl)

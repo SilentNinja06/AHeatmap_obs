@@ -69,6 +69,7 @@ export default class SpiralLoggerPlugin extends Plugin {
 		// Don't share the default array instances — quick capture mutates these lists.
 		this.settings.knownTriggers = [...(this.settings.knownTriggers ?? [])];
 		this.settings.knownFactors = [...(this.settings.knownFactors ?? DEFAULT_SETTINGS.knownFactors)];
+		this.settings.knownSensory = [...(this.settings.knownSensory ?? DEFAULT_SETTINGS.knownSensory)];
 	}
 
 	async saveSettings(): Promise<void> {

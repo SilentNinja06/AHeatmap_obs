@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, moment, setIcon } from "obsidian";
 import { SpiralEntry, kindInfo, SEVERITY_LABELS, splitList } from "./types";
-import { getEntries, triggerCounts, factorCounts } from "./store";
+import { getEntries, triggerCounts, factorCounts, sensoryCounts } from "./store";
 import { Tooltip, renderHeatmap, renderSeverityTrend, renderTriggerBars } from "./charts";
 import { QuickCaptureModal } from "./quickCapture";
 import { ThoughtCaptureModal } from "./thoughtCapture";
@@ -80,6 +80,12 @@ export class DashboardView extends ItemView {
 		if (triggers.length > 0) {
 			const trigCard = this.card(root, "Triggers, by how often they show up");
 			renderTriggerBars(trigCard, triggers);
+		}
+
+		const sensory = sensoryCounts(entries);
+		if (sensory.length > 0) {
+			const sensoryCard = this.card(root, "Sensory issues, by how often they show up");
+			renderTriggerBars(sensoryCard, sensory);
 		}
 
 		const factors = factorCounts(entries);

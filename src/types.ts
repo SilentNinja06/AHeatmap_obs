@@ -37,6 +37,7 @@ export interface EntryData {
 	kind: Kind;
 	severity: number; // 1-5
 	trigger: string;
+	sensory: string; // sensory issues present, from the maintained sensitivity list
 	warning_signs: string;
 	thoughts: string;
 	duration_min: number;

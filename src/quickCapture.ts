@@ -15,6 +15,7 @@ export class QuickCaptureModal extends Modal {
 	private kind: Kind | null = null;
 	private severity: number | null = null;
 	private selectedTriggers = new Set<string>();
+	private selectedSensory = new Set<string>();
 	private selectedFactors = new Set<string>();
 	private warningSigns = "";
 	private thoughts = "";
@@ -91,6 +92,13 @@ export class QuickCaptureModal extends Modal {
 
 		// One-tap chips from remembered lists, with a free-text add that grows the list.
 		this.chipPicker(body, "Trigger", "New trigger…", this.selectedTriggers, () => this.plugin.settings.knownTriggers);
+		this.chipPicker(
+			body,
+			"Sensory issues present",
+			"New sensitivity…",
+			this.selectedSensory,
+			() => this.plugin.settings.knownSensory
+		);
 		this.chipPicker(
 			body,
 			"Background factors (sleep, food, environment…)",
@@ -186,6 +194,7 @@ export class QuickCaptureModal extends Modal {
 			kind: this.kind ?? "other",
 			severity: this.severity ?? 3,
 			trigger: Array.from(this.selectedTriggers).join(", "),
+			sensory: Array.from(this.selectedSensory).join(", "),
 			warning_signs: this.warningSigns.trim(),
 			thoughts: this.thoughts.trim(),
 			duration_min: this.durationMin,

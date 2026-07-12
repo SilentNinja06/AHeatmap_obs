@@ -36,6 +36,7 @@ export function buildEntryContent(data: EntryData): string {
 		`kind: ${data.kind}`,
 		`severity: ${data.severity}`,
 		yamlText("trigger", data.trigger),
+		yamlText("sensory", data.sensory),
 		yamlText("warning_signs", data.warning_signs),
 		yamlText("thoughts", data.thoughts),
 		`duration_min: ${data.duration_min}`,
@@ -148,6 +149,7 @@ export function getEntries(app: App, _settings: SpiralLoggerSettings): SpiralEnt
 			kind: coerceKind(fm.kind),
 			severity: Math.min(5, Math.max(1, num(fm.severity) || 1)),
 			trigger: str(fm.trigger),
+			sensory: str(fm.sensory),
 			warning_signs: str(fm.warning_signs),
 			thoughts: str(fm.thoughts),
 			duration_min: num(fm.duration_min),
@@ -181,4 +183,8 @@ export function triggerCounts(entries: SpiralEntry[]): { trigger: string; count:
 
 export function factorCounts(entries: SpiralEntry[]): { trigger: string; count: number }[] {
 	return valueCounts(entries, (e) => e.factors);
+}
+
+export function sensoryCounts(entries: SpiralEntry[]): { trigger: string; count: number }[] {
+	return valueCounts(entries, (e) => e.sensory);
 }

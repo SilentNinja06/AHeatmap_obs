@@ -5,18 +5,49 @@ import type { SpiralLoggerSettings } from "./settings";
 interface DailyNoteConfig {
 	folder: string;
 	format: string;
+	template: string;
 }
 
 function getDailyNoteConfig(app: App): DailyNoteConfig {
 	// The daily-notes core plugin has no public API; fall back to defaults if its shape changes.
 	const anyApp = app as unknown as {
-		internalPlugins?: { getPluginById?: (id: string) => { instance?: { options?: { folder?: string; format?: string } } } };
+		internalPlugins?: {
+			getPluginById?: (id: string) => {
+				instance?: { options?: { folder?: string; format?: string; template?: string } };
+			};
+		};
 	};
 	const options = anyApp.internalPlugins?.getPluginById?.("daily-notes")?.instance?.options ?? {};
 	return {
 		folder: (options.folder ?? "").trim(),
 		format: (options.format ?? "").trim() || "YYYY-MM-DD",
+		template: (options.template ?? "").trim(),
 	};
+}
+
+/**
+ * Content for a freshly created daily note, from the Daily Notes plugin's template.
+ * Supports the core Templates placeholders ({{title}}, {{date}}, {{time}}, with
+ * optional :FORMAT); Templater syntax is left untouched. Empty string if no template.
+ */
+async function dailyTemplateContent(app: App, templatePath: string, date: string, title: string): Promise<string> {
+	if (!templatePath) return "";
+	const candidates = templatePath.endsWith(".md") ? [templatePath] : [`${templatePath}.md`, templatePath];
+	let file: TFile | null = null;
+	for (const candidate of candidates) {
+		const found = app.vault.getAbstractFileByPath(normalizePath(candidate));
+		if (found instanceof TFile) {
+			file = found;
+			break;
+		}
+	}
+	if (!file) return "";
+	const raw = await app.vault.cachedRead(file);
+	const day = moment(date, "YYYY-MM-DD");
+	return raw
+		.replace(/\{\{title\}\}/gi, title)
+		.replace(/\{\{date(?::([^}]+))?\}\}/gi, (_match, fmt: string | undefined) => day.format(fmt || "YYYY-MM-DD"))
+		.replace(/\{\{time(?::([^}]+))?\}\}/gi, (_match, fmt: string | undefined) => moment().format(fmt || "HH:mm"));
 }
 
 /**
@@ -30,7 +61,9 @@ export function insertAtPlacement(content: string, marker: string, heading: stri
 		const markerIdx = lines.findIndex((l) => l.includes(marker));
 		if (markerIdx !== -1) {
 			let insertAt = markerIdx + 1;
-			while (insertAt < lines.length && /^\s*- /.test(lines[insertAt])) insertAt++;
+			// Skip only links this plugin inserted ("- HH:mm [[…"), so the day stays
+			// chronological without swallowing unrelated template list items below.
+			while (insertAt < lines.length && /^\s*- \d{1,2}:\d{2} \[\[/.test(lines[insertAt])) insertAt++;
 			lines.splice(insertAt, 0, line);
 			return lines.join("\n");
 		}
@@ -80,7 +113,10 @@ export async function linkInDailyNote(
 		if (!daily) {
 			if (!settings.createDailyNoteIfMissing) return;
 			if (config.folder) await ensureFolder(app, config.folder);
-			daily = await app.vault.create(path, "");
+			// Seed from the daily-note template so the placement marker/heading (and
+			// everything else the user expects in a daily note) is there from the start.
+			const initial = await dailyTemplateContent(app, config.template, date, name);
+			daily = await app.vault.create(path, initial);
 		}
 		if (!(daily instanceof TFile)) return;
 

@@ -8,9 +8,9 @@ Built to be usable **during** a shutdown or panic attack: big touch targets, no 
 
 - **Quick capture** (`zap` ribbon icon, command palette, or a mobile toolbar button): tap a kind (shutdown / meltdown / panic attack / spiral / other), tap an intensity (1–5), tap save. Or tap **"Just save a timestamped entry now"** and decide nothing at all. Trigger chips, background-factor chips (sleep, food, environment…), thoughts, duration, recovery notes, and tags are all optional, behind a disclosure.
 - **Thought capture**: an instantly-focused textarea for dumping spiraling thoughts. It saves as its own timestamped note — even if you just close the window with text in it.
-- **Trigger & factor log**: one-tap chips in the capture form for triggers and for background factors (poor sleep, little food, loud environment, …); new items are remembered automatically. The dashboard shows how often each comes up.
-- **Daily-note linking**: every entry and thought note is linked into that day's daily note (uses your Daily Notes plugin folder/format; toggleable). You control *where*: if the note contains the placement marker (`%% spiral-log %%` by default — put it in your daily-note template), links go right there; otherwise they go under the configured heading wherever it sits; the heading is only appended at the end as a last resort.
-- **Dashboard** (`activity` ribbon icon): a GitHub-style heatmap of when things have been happening, a weekly severity trend line, trigger and factor frequency bars, 30-day summary tiles, and a recent-entries list with tap-to-open. Charts use a single muted blue ramp — deliberately no reds — and are readable in dark mode.
+- **Trigger, sensory & factor logs**: one-tap chips in the capture form for triggers, for sensory issues (bright light, loud noise, clothing texture, …), and for background factors (poor sleep, little food, …); new items are remembered automatically. The sensory list is your maintained sensitivity profile — its own dataset, deliberately separate from triggers — editable in settings. The dashboard shows how often each item comes up.
+- **Daily-note linking**: every entry and thought note is linked into that day's daily note (uses your Daily Notes plugin folder/format; toggleable). You control *where*: if the note contains the placement marker (`%% spiral-log %%` by default — put it in your daily-note template), links go right there; otherwise they go under the configured heading wherever it sits; the heading is only appended at the end as a last resort. If the daily note doesn't exist yet, it's created from your Daily Notes template (core `{{title}}` / `{{date}}` / `{{time}}` placeholders supported), so the marker and the rest of your layout are there from the start.
+- **Dashboard** (`activity` ribbon icon): a GitHub-style heatmap of when things have been happening, a weekly severity trend line, trigger / sensory / factor frequency bars, 30-day summary tiles, and a recent-entries list with tap-to-open. Charts use a single muted blue ramp — deliberately no reds — and are readable in dark mode.
 - **Export**: one command for a CSV of all entries, one for a formatted markdown summary (kind/trigger/monthly breakdowns plus a full log table) ready to bring to a psychiatrist or therapist appointment.
 
 ## Data format — no lock-in
@@ -24,6 +24,7 @@ time: "21:40"
 kind: shutdown          # shutdown | meltdown | panic-attack | spiral | other
 severity: 3             # 1-5
 trigger: "schedule change"
+sensory: "loud noise, bright / fluorescent light"   # from your maintained sensitivity list
 warning_signs: ""
 thoughts: ""
 duration_min: 0
@@ -57,7 +58,7 @@ For true one-tap access on mobile, add the **"Log an entry (quick capture)"** co
 - Entry / thoughts / export folder locations
 - Filename template (`{{date}} {{time}} {{kind}}`)
 - Daily-note linking toggle, heading, placement marker, and create-if-missing behavior
-- Known triggers and known factors lists (editable; auto-populated as you log)
+- Known triggers, sensory sensitivities, and factors lists (editable; auto-populated as you log)
 - Heatmap history length
 
 ## Developing

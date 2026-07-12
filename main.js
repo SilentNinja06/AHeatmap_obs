@@ -51,6 +51,16 @@ var DEFAULT_SETTINGS = {
     "illness or pain",
     "routine disrupted"
   ],
+  knownSensory: [
+    "bright / fluorescent light",
+    "loud noise",
+    "sudden sounds",
+    "background chatter",
+    "strong smells",
+    "clothing texture / tags",
+    "unexpected touch",
+    "food texture"
+  ],
   heatmapWeeks: 20
 };
 var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
@@ -126,6 +136,13 @@ var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
       });
       text.inputEl.rows = 6;
     });
+    new import_obsidian.Setting(containerEl).setName("Sensory sensitivities").setDesc("Your maintained list of sensory things that are problematic \u2014 this is its own dataset, separate from triggers. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.").addTextArea((text) => {
+      text.setPlaceholder("bright / fluorescent light\nloud noise\nclothing texture / tags").setValue(this.plugin.settings.knownSensory.join("\n")).onChange(async (value) => {
+        this.plugin.settings.knownSensory = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
+        await this.plugin.saveSettings();
+      });
+      text.inputEl.rows = 8;
+    });
     new import_obsidian.Setting(containerEl).setName("Heatmap range (weeks)").setDesc("How many weeks of history the dashboard heatmap shows.").addSlider(
       (slider) => slider.setLimits(8, 52, 1).setValue(this.plugin.settings.heatmapWeeks).setDynamicTooltip().onChange(async (value) => {
         this.plugin.settings.heatmapWeeks = value;
@@ -190,6 +207,7 @@ function buildEntryContent(data) {
     `kind: ${data.kind}`,
     `severity: ${data.severity}`,
     yamlText("trigger", data.trigger),
+    yamlText("sensory", data.sensory),
     yamlText("warning_signs", data.warning_signs),
     yamlText("thoughts", data.thoughts),
     `duration_min: ${data.duration_min}`,
@@ -274,6 +292,7 @@ function getEntries(app, _settings) {
       kind: coerceKind(fm.kind),
       severity: Math.min(5, Math.max(1, num(fm.severity) || 1)),
       trigger: str(fm.trigger),
+      sensory: str(fm.sensory),
       warning_signs: str(fm.warning_signs),
       thoughts: str(fm.thoughts),
       duration_min: num(fm.duration_min),
@@ -303,17 +322,37 @@ function triggerCounts(entries) {
 function factorCounts(entries) {
   return valueCounts(entries, (e) => e.factors);
 }
+function sensoryCounts(entries) {
+  return valueCounts(entries, (e) => e.sensory);
+}
 
 // src/dailyNote.ts
 var import_obsidian3 = require("obsidian");
 function getDailyNoteConfig(app) {
-  var _a, _b, _c, _d, _e, _f, _g;
+  var _a, _b, _c, _d, _e, _f, _g, _h;
   const anyApp = app;
   const options = (_e = (_d = (_c = (_b = (_a = anyApp.internalPlugins) == null ? void 0 : _a.getPluginById) == null ? void 0 : _b.call(_a, "daily-notes")) == null ? void 0 : _c.instance) == null ? void 0 : _d.options) != null ? _e : {};
   return {
     folder: ((_f = options.folder) != null ? _f : "").trim(),
-    format: ((_g = options.format) != null ? _g : "").trim() || "YYYY-MM-DD"
+    format: ((_g = options.format) != null ? _g : "").trim() || "YYYY-MM-DD",
+    template: ((_h = options.template) != null ? _h : "").trim()
   };
+}
+async function dailyTemplateContent(app, templatePath, date, title) {
+  if (!templatePath) return "";
+  const candidates = templatePath.endsWith(".md") ? [templatePath] : [`${templatePath}.md`, templatePath];
+  let file = null;
+  for (const candidate of candidates) {
+    const found = app.vault.getAbstractFileByPath((0, import_obsidian3.normalizePath)(candidate));
+    if (found instanceof import_obsidian3.TFile) {
+      file = found;
+      break;
+    }
+  }
+  if (!file) return "";
+  const raw = await app.vault.cachedRead(file);
+  const day = (0, import_obsidian3.moment)(date, "YYYY-MM-DD");
+  return raw.replace(/\{\{title\}\}/gi, title).replace(/\{\{date(?::([^}]+))?\}\}/gi, (_match, fmt) => day.format(fmt || "YYYY-MM-DD")).replace(/\{\{time(?::([^}]+))?\}\}/gi, (_match, fmt) => (0, import_obsidian3.moment)().format(fmt || "HH:mm"));
 }
 function insertAtPlacement(content, marker, heading, line) {
   if (marker) {
@@ -321,7 +360,7 @@ function insertAtPlacement(content, marker, heading, line) {
     const markerIdx = lines.findIndex((l) => l.includes(marker));
     if (markerIdx !== -1) {
       let insertAt = markerIdx + 1;
-      while (insertAt < lines.length && /^\s*- /.test(lines[insertAt])) insertAt++;
+      while (insertAt < lines.length && /^\s*- \d{1,2}:\d{2} \[\[/.test(lines[insertAt])) insertAt++;
       lines.splice(insertAt, 0, line);
       return lines.join("\n");
     }
@@ -360,7 +399,8 @@ async function linkInDailyNote(app, settings, date, time, file, label) {
     if (!daily) {
       if (!settings.createDailyNoteIfMissing) return;
       if (config.folder) await ensureFolder(app, config.folder);
-      daily = await app.vault.create(path, "");
+      const initial = await dailyTemplateContent(app, config.template, date, name);
+      daily = await app.vault.create(path, initial);
     }
     if (!(daily instanceof import_obsidian3.TFile)) return;
     const linktext = app.metadataCache.fileToLinktext(file, daily.path);
@@ -381,6 +421,7 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     this.kind = null;
     this.severity = null;
     this.selectedTriggers = /* @__PURE__ */ new Set();
+    this.selectedSensory = /* @__PURE__ */ new Set();
     this.selectedFactors = /* @__PURE__ */ new Set();
     this.warningSigns = "";
     this.thoughts = "";
@@ -444,6 +485,13 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     details.createEl("summary", { text: "Add details (optional \u2014 you can also edit the note later)" });
     const body = details.createDiv();
     this.chipPicker(body, "Trigger", "New trigger\u2026", this.selectedTriggers, () => this.plugin.settings.knownTriggers);
+    this.chipPicker(
+      body,
+      "Sensory issues present",
+      "New sensitivity\u2026",
+      this.selectedSensory,
+      () => this.plugin.settings.knownSensory
+    );
     this.chipPicker(
       body,
       "Background factors (sleep, food, environment\u2026)",
@@ -526,6 +574,7 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
       kind: (_a = this.kind) != null ? _a : "other",
       severity: (_b = this.severity) != null ? _b : 3,
       trigger: Array.from(this.selectedTriggers).join(", "),
+      sensory: Array.from(this.selectedSensory).join(", "),
       warning_signs: this.warningSigns.trim(),
       thoughts: this.thoughts.trim(),
       duration_min: this.durationMin,
@@ -854,6 +903,7 @@ function entriesToCsv(entries) {
     "kind",
     "severity",
     "trigger",
+    "sensory",
     "warning_signs",
     "thoughts",
     "duration_min",
@@ -869,6 +919,7 @@ function entriesToCsv(entries) {
       e.kind,
       e.severity,
       e.trigger,
+      e.sensory,
       e.warning_signs,
       e.thoughts,
       e.duration_min,
@@ -904,6 +955,15 @@ function buildSummaryMarkdown(entries) {
     lines.push("## Triggers", "");
     lines.push("| Trigger | Times logged |", "| --- | ---: |");
     for (const { trigger, count } of triggers.slice(0, 20)) {
+      lines.push(`| ${trigger} | ${count} |`);
+    }
+    lines.push("");
+  }
+  const sensory = sensoryCounts(entries);
+  if (sensory.length > 0) {
+    lines.push("## Sensory issues", "");
+    lines.push("| Sensory issue | Times logged |", "| --- | ---: |");
+    for (const { trigger, count } of sensory.slice(0, 20)) {
       lines.push(`| ${trigger} | ${count} |`);
     }
     lines.push("");
@@ -1022,6 +1082,11 @@ var DashboardView = class extends import_obsidian8.ItemView {
     if (triggers.length > 0) {
       const trigCard = this.card(root, "Triggers, by how often they show up");
       renderTriggerBars(trigCard, triggers);
+    }
+    const sensory = sensoryCounts(entries);
+    if (sensory.length > 0) {
+      const sensoryCard = this.card(root, "Sensory issues, by how often they show up");
+      renderTriggerBars(sensoryCard, sensory);
     }
     const factors = factorCounts(entries);
     if (factors.length > 0) {
@@ -1160,10 +1225,11 @@ var SpiralLoggerPlugin = class extends import_obsidian9.Plugin {
     void workspace.revealLeaf(leaf);
   }
   async loadSettings() {
-    var _a, _b;
+    var _a, _b, _c;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.settings.knownTriggers = [...(_a = this.settings.knownTriggers) != null ? _a : []];
     this.settings.knownFactors = [...(_b = this.settings.knownFactors) != null ? _b : DEFAULT_SETTINGS.knownFactors];
+    this.settings.knownSensory = [...(_c = this.settings.knownSensory) != null ? _c : DEFAULT_SETTINGS.knownSensory];
   }
   async saveSettings() {
     await this.saveData(this.settings);
