@@ -1,0 +1,497 @@
+/* Spiral & Shutdown Logger
+ *
+ * Data colors are a single muted blue ramp (low-arousal by design — no reds),
+ * validated as an ordinal ramp for both modes:
+ *   light surface: monotone L, all steps >= 2:1 vs surface
+ *   dark surface:  same hue restepped for dark, >= 2:1 vs #1e1e1e
+ * Surfaces, text, and chrome come from Obsidian theme variables so any theme works.
+ */
+
+body {
+	--ssl-heat-1: #86b6ef;
+	--ssl-heat-2: #5598e7;
+	--ssl-heat-3: #2a78d6;
+	--ssl-heat-4: #1c5cab;
+	--ssl-heat-5: #104281;
+	--ssl-accent: #2a78d6;
+	--ssl-heat-0: var(--background-modifier-border);
+}
+
+body.theme-dark {
+	--ssl-heat-1: #184f95;
+	--ssl-heat-2: #256abf;
+	--ssl-heat-3: #3987e5;
+	--ssl-heat-4: #6da7ec;
+	--ssl-heat-5: #9ec5f4;
+	--ssl-accent: #3987e5;
+}
+
+/* ------------------------------------------------------------------ *
+ * Quick capture modal
+ * ------------------------------------------------------------------ */
+
+.ssl-capture .ssl-placeholder-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	width: 100%;
+	min-height: 52px;
+	margin-bottom: 16px;
+	font-size: 1em;
+	font-weight: 600;
+	border-radius: 10px;
+	cursor: pointer;
+}
+
+.ssl-field-label {
+	font-size: 0.85em;
+	font-weight: 600;
+	color: var(--text-muted);
+	margin: 12px 0 6px;
+}
+
+.ssl-kind-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+	gap: 8px;
+}
+
+.ssl-kind-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 48px;
+	border-radius: 10px;
+	font-size: 0.95em;
+	cursor: pointer;
+	box-shadow: none;
+}
+
+.ssl-kind-btn.is-selected,
+.ssl-sev-btn.is-selected,
+.ssl-chip.is-selected {
+	background-color: var(--ssl-accent);
+	color: #ffffff;
+	border-color: var(--ssl-accent);
+}
+
+.ssl-severity-row {
+	display: flex;
+	gap: 6px;
+}
+
+.ssl-sev-btn {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	min-height: 56px;
+	border-radius: 10px;
+	cursor: pointer;
+	padding: 4px 2px;
+}
+
+.ssl-sev-num {
+	font-size: 1.2em;
+	font-weight: 700;
+}
+
+.ssl-sev-word {
+	font-size: 0.65em;
+	color: var(--text-muted);
+}
+
+.ssl-sev-btn.is-selected .ssl-sev-word {
+	color: inherit;
+}
+
+.ssl-details {
+	margin: 16px 0 4px;
+}
+
+.ssl-details summary {
+	cursor: pointer;
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
+.ssl-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.ssl-chip,
+.ssl-chip-add {
+	min-height: 44px;
+	padding: 6px 14px;
+	border-radius: 22px;
+	font-size: 0.9em;
+	cursor: pointer;
+}
+
+.ssl-add-trigger {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 4px;
+}
+
+.ssl-add-trigger .ssl-text-input {
+	flex: 1;
+	min-height: 44px;
+}
+
+.ssl-save-btn {
+	display: block;
+	width: 100%;
+	min-height: 52px;
+	margin-top: 16px;
+	font-size: 1em;
+	font-weight: 600;
+	border-radius: 10px;
+	cursor: pointer;
+}
+
+.ssl-save-btn:disabled {
+	opacity: 0.55;
+	cursor: default;
+}
+
+/* ------------------------------------------------------------------ *
+ * Thought capture modal
+ * ------------------------------------------------------------------ */
+
+.ssl-thoughts-area {
+	width: 100%;
+	resize: vertical;
+	font-size: 1.05em;
+	line-height: 1.5;
+	border-radius: 10px;
+	padding: 12px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Dashboard
+ * ------------------------------------------------------------------ */
+
+.ssl-dashboard {
+	padding: 12px 16px 32px;
+	overflow-y: auto;
+}
+
+.ssl-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+.ssl-action-btn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 44px;
+	padding: 8px 16px;
+	border-radius: 10px;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.ssl-action-btn.ssl-action-small {
+	font-weight: 400;
+	color: var(--text-muted);
+}
+
+.ssl-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+.ssl-stat {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px;
+	padding: 12px;
+}
+
+.ssl-stat-value {
+	font-size: 1.4em;
+	font-weight: 700;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ssl-stat-label {
+	font-size: 0.75em;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+.ssl-card {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px;
+	padding: 14px;
+	margin-bottom: 14px;
+}
+
+.ssl-card-title {
+	font-size: 0.9em;
+	font-weight: 600;
+	margin-bottom: 10px;
+}
+
+.ssl-empty {
+	text-align: center;
+	padding: 48px 24px;
+	color: var(--text-muted);
+}
+
+.ssl-empty-title {
+	font-size: 1.1em;
+	font-weight: 600;
+	margin-bottom: 8px;
+	color: var(--text-normal);
+}
+
+/* Heatmap */
+
+.ssl-heatmap-scroll {
+	overflow-x: auto;
+	padding-bottom: 4px;
+}
+
+.ssl-heat-cell {
+	stroke: none;
+}
+
+.ssl-heat-0 { fill: var(--ssl-heat-0); background-color: var(--ssl-heat-0); }
+.ssl-heat-1 { fill: var(--ssl-heat-1); background-color: var(--ssl-heat-1); }
+.ssl-heat-2 { fill: var(--ssl-heat-2); background-color: var(--ssl-heat-2); }
+.ssl-heat-3 { fill: var(--ssl-heat-3); background-color: var(--ssl-heat-3); }
+.ssl-heat-4 { fill: var(--ssl-heat-4); background-color: var(--ssl-heat-4); }
+.ssl-heat-5 { fill: var(--ssl-heat-5); background-color: var(--ssl-heat-5); }
+
+.ssl-heat-legend {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-top: 6px;
+	font-size: 0.72em;
+	color: var(--text-muted);
+}
+
+.ssl-heat-swatch {
+	width: 12px;
+	height: 12px;
+	border-radius: 3px;
+	display: inline-block;
+}
+
+/* Charts (shared) */
+
+.ssl-chart-label {
+	font-size: 10px;
+	fill: var(--text-muted);
+	font-family: var(--font-interface);
+}
+
+.ssl-chart-label-strong {
+	font-weight: 700;
+	fill: var(--text-normal);
+}
+
+.ssl-gridline {
+	stroke: var(--background-modifier-border);
+	stroke-width: 1;
+}
+
+.ssl-line {
+	fill: none;
+	stroke: var(--ssl-accent);
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.ssl-line-dot {
+	fill: var(--ssl-accent);
+	stroke: var(--background-secondary);
+	stroke-width: 2;
+}
+
+.ssl-hit {
+	fill: transparent;
+	cursor: pointer;
+}
+
+/* Trigger bars */
+
+.ssl-bars {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.ssl-bar-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-height: 24px;
+}
+
+.ssl-bar-label {
+	flex: 0 0 34%;
+	max-width: 34%;
+	font-size: 0.85em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	text-align: right;
+	color: var(--text-normal);
+}
+
+.ssl-bar-track {
+	flex: 1;
+}
+
+.ssl-bar-fill {
+	height: 12px;
+	border-radius: 0 4px 4px 0;
+	background-color: var(--ssl-accent);
+}
+
+.ssl-bar-count {
+	flex: 0 0 28px;
+	font-size: 0.85em;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.ssl-bars-more {
+	font-size: 0.78em;
+	color: var(--text-muted);
+	margin-top: 2px;
+}
+
+/* Recent entries */
+
+.ssl-recent {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.ssl-recent-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: 52px;
+	padding: 8px 10px;
+	border-radius: 10px;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	cursor: pointer;
+	text-align: left;
+}
+
+.ssl-recent-row:hover {
+	background: var(--background-modifier-hover);
+}
+
+.ssl-recent-icon {
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.ssl-recent-main {
+	flex: 1;
+	min-width: 0;
+}
+
+.ssl-recent-head {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.ssl-recent-kind {
+	font-weight: 600;
+	font-size: 0.92em;
+}
+
+.ssl-recent-date {
+	font-size: 0.78em;
+	color: var(--text-muted);
+}
+
+.ssl-recent-trigger {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ssl-recent-sev {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	flex-shrink: 0;
+}
+
+.ssl-sev-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--background-modifier-border);
+	display: inline-block;
+}
+
+.ssl-recent-sevnum {
+	font-size: 0.8em;
+	color: var(--text-muted);
+	margin-left: 4px;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Tooltip */
+
+.ssl-tooltip {
+	position: fixed;
+	z-index: var(--layer-tooltip, 100);
+	background: var(--background-tooltip, var(--background-secondary));
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 6px 10px;
+	font-size: 0.8em;
+	pointer-events: none;
+	max-width: 260px;
+	box-shadow: var(--shadow-s);
+}
+
+/* Buttons: consistent icon sizing */
+
+.ssl-btn-icon {
+	display: inline-flex;
+	align-items: center;
+}
+
+.ssl-btn-icon svg {
+	width: 18px;
+	height: 18px;
+}

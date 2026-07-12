@@ -1,0 +1,4 @@
+node_modules/
+*.map
+.DS_Store
+# main.js IS committed at repo root (BRAT installs need it) — do not ignore it.

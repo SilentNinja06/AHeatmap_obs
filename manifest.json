@@ -1,0 +1,10 @@
+{
+	"id": "spiral-shutdown-logger",
+	"name": "Spiral & Shutdown Logger",
+	"version": "1.0.0",
+	"minAppVersion": "1.4.0",
+	"description": "Fast, low-friction logging of shutdowns, meltdowns, panic attacks, and anxiety spirals — with trigger tracking, a calm dashboard, and daily-note linking.",
+	"author": "SilentNinja06",
+	"authorUrl": "https://github.com/SilentNinja06",
+	"isDesktopOnly": false
+}
