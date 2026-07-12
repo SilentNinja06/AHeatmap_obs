@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "*"
+  # Manual fallback: creates the tag itself, from manifest.json's version.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -27,8 +29,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${GITHUB_REF#refs/tags/}"
-          gh release create "$tag" \
-            --title "$tag" \
-            --generate-notes \
-            main.js manifest.json styles.css
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="$(node -p "require('./manifest.json').version")"
+            target_args=(--target "$GITHUB_SHA")
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+            target_args=()
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; uploading assets only."
+            gh release upload "$tag" --clobber main.js manifest.json styles.css
+          else
+            gh release create "$tag" \
+              --title "$tag" \
+              --generate-notes \
+              "${target_args[@]}" \
+              main.js manifest.json styles.css
+          fi
