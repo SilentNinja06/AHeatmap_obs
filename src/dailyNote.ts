@@ -19,6 +19,25 @@ function getDailyNoteConfig(app: App): DailyNoteConfig {
 	};
 }
 
+/**
+ * Insert `line` at the placement marker if the note contains one (right after it,
+ * below any links already inserted there), otherwise under the heading. The marker
+ * lets a daily-note template pin the exact spot without a visible heading.
+ */
+export function insertAtPlacement(content: string, marker: string, heading: string, line: string): string {
+	if (marker) {
+		const lines = content.split("\n");
+		const markerIdx = lines.findIndex((l) => l.includes(marker));
+		if (markerIdx !== -1) {
+			let insertAt = markerIdx + 1;
+			while (insertAt < lines.length && /^\s*- /.test(lines[insertAt])) insertAt++;
+			lines.splice(insertAt, 0, line);
+			return lines.join("\n");
+		}
+	}
+	return insertUnderHeading(content, heading, line);
+}
+
 export function insertUnderHeading(content: string, heading: string, line: string): string {
 	const lines = content.split("\n");
 	const headingText = heading.trim();
@@ -67,7 +86,9 @@ export async function linkInDailyNote(
 
 		const linktext = app.metadataCache.fileToLinktext(file, daily.path);
 		const line = `- ${time} [[${linktext}|${label}]]`;
-		await app.vault.process(daily, (content) => insertUnderHeading(content, settings.dailyNoteHeading, line));
+		await app.vault.process(daily, (content) =>
+			insertAtPlacement(content, settings.dailyNoteMarker, settings.dailyNoteHeading, line)
+		);
 	} catch (e) {
 		// Daily-note linking is a convenience; never let it block saving the entry itself.
 		console.error("Spiral & Shutdown Logger: daily note linking failed", e);

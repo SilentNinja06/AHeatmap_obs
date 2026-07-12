@@ -1,5 +1,5 @@
 import { App, TFile, normalizePath } from "obsidian";
-import { ENTRY_TYPE, THOUGHT_TYPE, EntryData, SpiralEntry, Kind, KINDS, splitTriggers, kindInfo } from "./types";
+import { ENTRY_TYPE, THOUGHT_TYPE, EntryData, SpiralEntry, Kind, KINDS, splitList, kindInfo } from "./types";
 import type { SpiralLoggerSettings } from "./settings";
 
 /* ------------------------------------------------------------------ *
@@ -40,7 +40,7 @@ export function buildEntryContent(data: EntryData): string {
 		yamlText("thoughts", data.thoughts),
 		`duration_min: ${data.duration_min}`,
 		yamlText("recovery_notes", data.recovery_notes),
-		yamlText("sleep_prior", data.sleep_prior),
+		yamlText("factors", data.factors),
 		yamlList("tags", data.tags),
 		"---",
 	].join("\n");
@@ -152,7 +152,8 @@ export function getEntries(app: App, _settings: SpiralLoggerSettings): SpiralEnt
 			thoughts: str(fm.thoughts),
 			duration_min: num(fm.duration_min),
 			recovery_notes: str(fm.recovery_notes),
-			sleep_prior: str(fm.sleep_prior),
+			// `sleep_prior` is the pre-1.0 name for this field; keep reading it.
+			factors: str(fm.factors) || str(fm.sleep_prior),
 			tags: Array.isArray(fm.tags) ? fm.tags.map(str) : [],
 		});
 	}
@@ -160,11 +161,11 @@ export function getEntries(app: App, _settings: SpiralLoggerSettings): SpiralEnt
 	return entries;
 }
 
-/** Trigger frequency across all entries, most frequent first. */
-export function triggerCounts(entries: SpiralEntry[]): { trigger: string; count: number }[] {
+/** Frequency of items in a comma-separated field across entries, most frequent first. */
+function valueCounts(entries: SpiralEntry[], field: (e: SpiralEntry) => string): { trigger: string; count: number }[] {
 	const counts = new Map<string, number>();
 	for (const entry of entries) {
-		for (const t of splitTriggers(entry.trigger)) {
+		for (const t of splitList(field(entry))) {
 			const key = t.toLowerCase();
 			counts.set(key, (counts.get(key) ?? 0) + 1);
 		}
@@ -172,4 +173,12 @@ export function triggerCounts(entries: SpiralEntry[]): { trigger: string; count:
 	return Array.from(counts.entries())
 		.map(([trigger, count]) => ({ trigger, count }))
 		.sort((a, b) => b.count - a.count || a.trigger.localeCompare(b.trigger));
+}
+
+export function triggerCounts(entries: SpiralEntry[]): { trigger: string; count: number }[] {
+	return valueCounts(entries, (e) => e.trigger);
+}
+
+export function factorCounts(entries: SpiralEntry[]): { trigger: string; count: number }[] {
+	return valueCounts(entries, (e) => e.factors);
 }

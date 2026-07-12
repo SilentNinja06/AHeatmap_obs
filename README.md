@@ -6,11 +6,11 @@ Built to be usable **during** a shutdown or panic attack: big touch targets, no 
 
 ## What it does
 
-- **Quick capture** (`zap` ribbon icon, command palette, or a mobile toolbar button): tap a kind (shutdown / meltdown / panic attack / spiral / other), tap an intensity (1–5), tap save. Or tap **"Just save a timestamped entry now"** and decide nothing at all. Trigger chips, thoughts, duration, recovery notes, and tags are all optional, behind a disclosure.
+- **Quick capture** (`zap` ribbon icon, command palette, or a mobile toolbar button): tap a kind (shutdown / meltdown / panic attack / spiral / other), tap an intensity (1–5), tap save. Or tap **"Just save a timestamped entry now"** and decide nothing at all. Trigger chips, background-factor chips (sleep, food, environment…), thoughts, duration, recovery notes, and tags are all optional, behind a disclosure.
 - **Thought capture**: an instantly-focused textarea for dumping spiraling thoughts. It saves as its own timestamped note — even if you just close the window with text in it.
-- **Trigger log**: one-tap trigger chips in the capture form; new triggers are remembered automatically. The dashboard shows how often each trigger comes up.
-- **Daily-note linking**: every entry and thought note is linked under a heading in that day's daily note (uses your Daily Notes plugin folder/format; toggleable).
-- **Dashboard** (`activity` ribbon icon): a GitHub-style heatmap of when things have been happening, a weekly severity trend line, trigger frequency bars, 30-day summary tiles, and a recent-entries list with tap-to-open. Charts use a single muted blue ramp — deliberately no reds — and are readable in dark mode.
+- **Trigger & factor log**: one-tap chips in the capture form for triggers and for background factors (poor sleep, little food, loud environment, …); new items are remembered automatically. The dashboard shows how often each comes up.
+- **Daily-note linking**: every entry and thought note is linked into that day's daily note (uses your Daily Notes plugin folder/format; toggleable). You control *where*: if the note contains the placement marker (`%% spiral-log %%` by default — put it in your daily-note template), links go right there; otherwise they go under the configured heading wherever it sits; the heading is only appended at the end as a last resort.
+- **Dashboard** (`activity` ribbon icon): a GitHub-style heatmap of when things have been happening, a weekly severity trend line, trigger and factor frequency bars, 30-day summary tiles, and a recent-entries list with tap-to-open. Charts use a single muted blue ramp — deliberately no reds — and are readable in dark mode.
 - **Export**: one command for a CSV of all entries, one for a formatted markdown summary (kind/trigger/monthly breakdowns plus a full log table) ready to bring to a psychiatrist or therapist appointment.
 
 ## Data format — no lock-in
@@ -28,11 +28,11 @@ warning_signs: ""
 thoughts: ""
 duration_min: 0
 recovery_notes: ""
-sleep_prior: ""
+factors: "poor sleep, little food today"   # background contributors: sleep, food, environment, …
 tags: []
 ```
 
-Thought notes use `type: spiral-thought` with the raw text as the note body.
+Thought notes use `type: spiral-thought` with the raw text as the note body. (Entries written by pre-1.0 builds used `sleep_prior` instead of `factors`; those are still read.)
 
 Entries are discovered by the `type: spiral-entry` frontmatter, not by path — you can move, rename, and reorganize notes freely, and everything stays greppable and Dataview-queryable if you ever stop using the plugin.
 
@@ -56,8 +56,8 @@ For true one-tap access on mobile, add the **"Log an entry (quick capture)"** co
 
 - Entry / thoughts / export folder locations
 - Filename template (`{{date}} {{time}} {{kind}}`)
-- Daily-note linking toggle, heading, and create-if-missing behavior
-- Known triggers list (editable; auto-populated as you log)
+- Daily-note linking toggle, heading, placement marker, and create-if-missing behavior
+- Known triggers and known factors lists (editable; auto-populated as you log)
 - Heatmap history length
 
 ## Developing

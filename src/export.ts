@@ -1,6 +1,6 @@
 import { App, Notice, TFile, moment, normalizePath } from "obsidian";
 import { SpiralEntry, kindInfo, KINDS } from "./types";
-import { getEntries, triggerCounts, ensureFolder } from "./store";
+import { getEntries, triggerCounts, factorCounts, ensureFolder } from "./store";
 import type { SpiralLoggerSettings } from "./settings";
 
 function csvCell(value: string | number): string {
@@ -20,7 +20,7 @@ export function entriesToCsv(entries: SpiralEntry[]): string {
 		"thoughts",
 		"duration_min",
 		"recovery_notes",
-		"sleep_prior",
+		"factors",
 		"tags",
 		"file",
 	];
@@ -35,7 +35,7 @@ export function entriesToCsv(entries: SpiralEntry[]): string {
 			e.thoughts,
 			e.duration_min,
 			e.recovery_notes,
-			e.sleep_prior,
+			e.factors,
 			e.tags.join("; "),
 			e.file.path,
 		]
@@ -74,6 +74,17 @@ export function buildSummaryMarkdown(entries: SpiralEntry[]): string {
 		lines.push("## Triggers", "");
 		lines.push("| Trigger | Times logged |", "| --- | ---: |");
 		for (const { trigger, count } of triggers.slice(0, 20)) {
+			lines.push(`| ${trigger} | ${count} |`);
+		}
+		lines.push("");
+	}
+
+	// Background factors
+	const factors = factorCounts(entries);
+	if (factors.length > 0) {
+		lines.push("## Background factors", "");
+		lines.push("| Factor | Times logged |", "| --- | ---: |");
+		for (const { trigger, count } of factors.slice(0, 20)) {
 			lines.push(`| ${trigger} | ${count} |`);
 		}
 		lines.push("");

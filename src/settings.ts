@@ -9,7 +9,9 @@ export interface SpiralLoggerSettings {
 	dailyNoteLinking: boolean;
 	createDailyNoteIfMissing: boolean;
 	dailyNoteHeading: string;
+	dailyNoteMarker: string;
 	knownTriggers: string[];
+	knownFactors: string[];
 	heatmapWeeks: number;
 }
 
@@ -21,7 +23,18 @@ export const DEFAULT_SETTINGS: SpiralLoggerSettings = {
 	dailyNoteLinking: true,
 	createDailyNoteIfMissing: true,
 	dailyNoteHeading: "## Spiral log",
+	dailyNoteMarker: "%% spiral-log %%",
 	knownTriggers: [],
+	knownFactors: [
+		"poor sleep",
+		"little food today",
+		"caffeine",
+		"loud environment",
+		"crowded place",
+		"too hot / too cold",
+		"illness or pain",
+		"routine disrupted",
+	],
 	heatmapWeeks: 20,
 };
 
@@ -115,7 +128,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Daily note heading")
-			.setDesc("Links are inserted under this heading (created at the end of the note if missing).")
+			.setDesc("Links are inserted under this heading, wherever it sits in the note — add it to your daily-note template to control the position. It's only created at the end of the note if it doesn't exist.")
 			.addText((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.dailyNoteHeading)
@@ -126,7 +139,20 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 					})
 			);
 
-		new Setting(containerEl).setName("Triggers & dashboard").setHeading();
+		new Setting(containerEl)
+			.setName("Placement marker")
+			.setDesc("If this text appears anywhere in the daily note (e.g. from your template), links are inserted right after it instead of under the heading. Useful for pinning an exact spot without a visible heading. Leave empty to disable.")
+			.addText((text) =>
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.dailyNoteMarker)
+					.setValue(this.plugin.settings.dailyNoteMarker)
+					.onChange(async (value) => {
+						this.plugin.settings.dailyNoteMarker = value.trim();
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl).setName("Triggers, factors & dashboard").setHeading();
 
 		new Setting(containerEl)
 			.setName("Known triggers")
@@ -136,6 +162,22 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.knownTriggers.join("\n"))
 					.onChange(async (value) => {
 						this.plugin.settings.knownTriggers = value
+							.split("\n")
+							.map((t) => t.trim())
+							.filter((t) => t.length > 0);
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.rows = 6;
+			});
+
+		new Setting(containerEl)
+			.setName("Known factors")
+			.setDesc("Background contributors — sleep, food, environment, and so on. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.")
+			.addTextArea((text) => {
+				text.setPlaceholder("poor sleep\nlittle food today\nloud environment")
+					.setValue(this.plugin.settings.knownFactors.join("\n"))
+					.onChange(async (value) => {
+						this.plugin.settings.knownFactors = value
 							.split("\n")
 							.map((t) => t.trim())
 							.filter((t) => t.length > 0);

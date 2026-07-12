@@ -41,7 +41,7 @@ export interface EntryData {
 	thoughts: string;
 	duration_min: number;
 	recovery_notes: string;
-	sleep_prior: string;
+	factors: string; // background contributors: sleep, food, environment, …
 	tags: string[];
 }
 
@@ -49,9 +49,9 @@ export interface SpiralEntry extends EntryData {
 	file: TFile;
 }
 
-/** Split a trigger field that may hold several comma-separated triggers. */
-export function splitTriggers(trigger: string): string[] {
-	return trigger
+/** Split a comma-separated field (triggers, factors, tags) into clean items. */
+export function splitList(value: string): string[] {
+	return value
 		.split(",")
 		.map((t) => t.trim())
 		.filter((t) => t.length > 0);

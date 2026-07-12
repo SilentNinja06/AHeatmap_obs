@@ -39,7 +39,18 @@ var DEFAULT_SETTINGS = {
   dailyNoteLinking: true,
   createDailyNoteIfMissing: true,
   dailyNoteHeading: "## Spiral log",
+  dailyNoteMarker: "%% spiral-log %%",
   knownTriggers: [],
+  knownFactors: [
+    "poor sleep",
+    "little food today",
+    "caffeine",
+    "loud environment",
+    "crowded place",
+    "too hot / too cold",
+    "illness or pain",
+    "routine disrupted"
+  ],
   heatmapWeeks: 20
 };
 var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
@@ -88,16 +99,29 @@ var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Daily note heading").setDesc("Links are inserted under this heading (created at the end of the note if missing).").addText(
+    new import_obsidian.Setting(containerEl).setName("Daily note heading").setDesc("Links are inserted under this heading, wherever it sits in the note \u2014 add it to your daily-note template to control the position. It's only created at the end of the note if it doesn't exist.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.dailyNoteHeading).setValue(this.plugin.settings.dailyNoteHeading).onChange(async (value) => {
         this.plugin.settings.dailyNoteHeading = value.trim() || DEFAULT_SETTINGS.dailyNoteHeading;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Triggers & dashboard").setHeading();
+    new import_obsidian.Setting(containerEl).setName("Placement marker").setDesc("If this text appears anywhere in the daily note (e.g. from your template), links are inserted right after it instead of under the heading. Useful for pinning an exact spot without a visible heading. Leave empty to disable.").addText(
+      (text) => text.setPlaceholder(DEFAULT_SETTINGS.dailyNoteMarker).setValue(this.plugin.settings.dailyNoteMarker).onChange(async (value) => {
+        this.plugin.settings.dailyNoteMarker = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Triggers, factors & dashboard").setHeading();
     new import_obsidian.Setting(containerEl).setName("Known triggers").setDesc("One per line. These show as one-tap chips in the quick-capture form. Triggers typed during capture are added here automatically.").addTextArea((text) => {
       text.setPlaceholder("crowds\nloud noise\nschedule change").setValue(this.plugin.settings.knownTriggers.join("\n")).onChange(async (value) => {
         this.plugin.settings.knownTriggers = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
+        await this.plugin.saveSettings();
+      });
+      text.inputEl.rows = 6;
+    });
+    new import_obsidian.Setting(containerEl).setName("Known factors").setDesc("Background contributors \u2014 sleep, food, environment, and so on. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.").addTextArea((text) => {
+      text.setPlaceholder("poor sleep\nlittle food today\nloud environment").setValue(this.plugin.settings.knownFactors.join("\n")).onChange(async (value) => {
+        this.plugin.settings.knownFactors = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
         await this.plugin.saveSettings();
       });
       text.inputEl.rows = 6;
@@ -135,8 +159,8 @@ var SEVERITY_LABELS = {
   4: "Intense",
   5: "Severe"
 };
-function splitTriggers(trigger) {
-  return trigger.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+function splitList(value) {
+  return value.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
 }
 
 // src/store.ts
@@ -170,7 +194,7 @@ function buildEntryContent(data) {
     yamlText("thoughts", data.thoughts),
     `duration_min: ${data.duration_min}`,
     yamlText("recovery_notes", data.recovery_notes),
-    yamlText("sleep_prior", data.sleep_prior),
+    yamlText("factors", data.factors),
     yamlList("tags", data.tags),
     "---"
   ].join("\n");
@@ -254,23 +278,30 @@ function getEntries(app, _settings) {
       thoughts: str(fm.thoughts),
       duration_min: num(fm.duration_min),
       recovery_notes: str(fm.recovery_notes),
-      sleep_prior: str(fm.sleep_prior),
+      // `sleep_prior` is the pre-1.0 name for this field; keep reading it.
+      factors: str(fm.factors) || str(fm.sleep_prior),
       tags: Array.isArray(fm.tags) ? fm.tags.map(str) : []
     });
   }
   entries.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
   return entries;
 }
-function triggerCounts(entries) {
+function valueCounts(entries, field) {
   var _a;
   const counts = /* @__PURE__ */ new Map();
   for (const entry of entries) {
-    for (const t of splitTriggers(entry.trigger)) {
+    for (const t of splitList(field(entry))) {
       const key = t.toLowerCase();
       counts.set(key, ((_a = counts.get(key)) != null ? _a : 0) + 1);
     }
   }
   return Array.from(counts.entries()).map(([trigger, count]) => ({ trigger, count })).sort((a, b) => b.count - a.count || a.trigger.localeCompare(b.trigger));
+}
+function triggerCounts(entries) {
+  return valueCounts(entries, (e) => e.trigger);
+}
+function factorCounts(entries) {
+  return valueCounts(entries, (e) => e.factors);
 }
 
 // src/dailyNote.ts
@@ -283,6 +314,19 @@ function getDailyNoteConfig(app) {
     folder: ((_f = options.folder) != null ? _f : "").trim(),
     format: ((_g = options.format) != null ? _g : "").trim() || "YYYY-MM-DD"
   };
+}
+function insertAtPlacement(content, marker, heading, line) {
+  if (marker) {
+    const lines = content.split("\n");
+    const markerIdx = lines.findIndex((l) => l.includes(marker));
+    if (markerIdx !== -1) {
+      let insertAt = markerIdx + 1;
+      while (insertAt < lines.length && /^\s*- /.test(lines[insertAt])) insertAt++;
+      lines.splice(insertAt, 0, line);
+      return lines.join("\n");
+    }
+  }
+  return insertUnderHeading(content, heading, line);
 }
 function insertUnderHeading(content, heading, line) {
   const lines = content.split("\n");
@@ -321,7 +365,10 @@ async function linkInDailyNote(app, settings, date, time, file, label) {
     if (!(daily instanceof import_obsidian3.TFile)) return;
     const linktext = app.metadataCache.fileToLinktext(file, daily.path);
     const line = `- ${time} [[${linktext}|${label}]]`;
-    await app.vault.process(daily, (content) => insertUnderHeading(content, settings.dailyNoteHeading, line));
+    await app.vault.process(
+      daily,
+      (content) => insertAtPlacement(content, settings.dailyNoteMarker, settings.dailyNoteHeading, line)
+    );
   } catch (e) {
     console.error("Spiral & Shutdown Logger: daily note linking failed", e);
   }
@@ -334,11 +381,11 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     this.kind = null;
     this.severity = null;
     this.selectedTriggers = /* @__PURE__ */ new Set();
+    this.selectedFactors = /* @__PURE__ */ new Set();
     this.warningSigns = "";
     this.thoughts = "";
     this.durationMin = 0;
     this.recoveryNotes = "";
-    this.sleepPrior = "";
     this.tagsText = "";
     this.saved = false;
     this.plugin = plugin;
@@ -396,46 +443,14 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     const details = contentEl.createEl("details", { cls: "ssl-details" });
     details.createEl("summary", { text: "Add details (optional \u2014 you can also edit the note later)" });
     const body = details.createDiv();
-    body.createDiv({ cls: "ssl-field-label", text: "Trigger" });
-    const chipWrap = body.createDiv({ cls: "ssl-chips" });
-    const renderChips = () => {
-      chipWrap.empty();
-      for (const trigger of this.plugin.settings.knownTriggers) {
-        const chip = chipWrap.createEl("button", { cls: "ssl-chip", text: trigger });
-        chip.toggleClass("is-selected", this.selectedTriggers.has(trigger));
-        chip.addEventListener("click", () => {
-          if (this.selectedTriggers.has(trigger)) this.selectedTriggers.delete(trigger);
-          else this.selectedTriggers.add(trigger);
-          chip.toggleClass("is-selected", this.selectedTriggers.has(trigger));
-        });
-      }
-    };
-    renderChips();
-    const addRow = body.createDiv({ cls: "ssl-add-trigger" });
-    const addInput = addRow.createEl("input", {
-      type: "text",
-      placeholder: "New trigger\u2026",
-      cls: "ssl-text-input"
-    });
-    const addBtn = addRow.createEl("button", { cls: "ssl-chip-add", text: "Add" });
-    const addTrigger = async () => {
-      const value = addInput.value.trim();
-      if (!value) return;
-      if (!this.plugin.settings.knownTriggers.includes(value)) {
-        this.plugin.settings.knownTriggers.push(value);
-        await this.plugin.saveSettings();
-      }
-      this.selectedTriggers.add(value);
-      addInput.value = "";
-      renderChips();
-    };
-    addBtn.addEventListener("click", () => void addTrigger());
-    addInput.addEventListener("keydown", (evt) => {
-      if (evt.key === "Enter") {
-        evt.preventDefault();
-        void addTrigger();
-      }
-    });
+    this.chipPicker(body, "Trigger", "New trigger\u2026", this.selectedTriggers, () => this.plugin.settings.knownTriggers);
+    this.chipPicker(
+      body,
+      "Background factors (sleep, food, environment\u2026)",
+      "New factor\u2026",
+      this.selectedFactors,
+      () => this.plugin.settings.knownFactors
+    );
     new import_obsidian4.Setting(body).setName("Warning signs").addText(
       (t) => t.setPlaceholder("what led up to it").onChange((v) => this.warningSigns = v)
     );
@@ -451,12 +466,49 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     new import_obsidian4.Setting(body).setName("Recovery notes").addText(
       (t) => t.setPlaceholder("what helped").onChange((v) => this.recoveryNotes = v)
     );
-    new import_obsidian4.Setting(body).setName("Sleep the night before").addText(
-      (t) => t.setPlaceholder("e.g. 5h, restless").onChange((v) => this.sleepPrior = v)
-    );
     new import_obsidian4.Setting(body).setName("Tags").setDesc("Comma-separated.").addText(
       (t) => t.setPlaceholder("work, sensory").onChange((v) => this.tagsText = v)
     );
+  }
+  /** A label + toggleable chip row + "add new" input backed by a persisted known-items list. */
+  chipPicker(body, label, placeholder, selected, known) {
+    body.createDiv({ cls: "ssl-field-label", text: label });
+    const chipWrap = body.createDiv({ cls: "ssl-chips" });
+    const renderChips = () => {
+      chipWrap.empty();
+      for (const item of known()) {
+        const chip = chipWrap.createEl("button", { cls: "ssl-chip", text: item });
+        chip.toggleClass("is-selected", selected.has(item));
+        chip.addEventListener("click", () => {
+          if (selected.has(item)) selected.delete(item);
+          else selected.add(item);
+          chip.toggleClass("is-selected", selected.has(item));
+        });
+      }
+    };
+    renderChips();
+    const addRow = body.createDiv({ cls: "ssl-add-trigger" });
+    const addInput = addRow.createEl("input", { type: "text", placeholder, cls: "ssl-text-input" });
+    const addBtn = addRow.createEl("button", { cls: "ssl-chip-add", text: "Add" });
+    const addItem = async () => {
+      const value = addInput.value.trim();
+      if (!value) return;
+      const list = known();
+      if (!list.includes(value)) {
+        list.push(value);
+        await this.plugin.saveSettings();
+      }
+      selected.add(value);
+      addInput.value = "";
+      renderChips();
+    };
+    addBtn.addEventListener("click", () => void addItem());
+    addInput.addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter") {
+        evt.preventDefault();
+        void addItem();
+      }
+    });
   }
   updateSaveState() {
     const ready = this.kind !== null && this.severity !== null;
@@ -478,8 +530,8 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
       thoughts: this.thoughts.trim(),
       duration_min: this.durationMin,
       recovery_notes: this.recoveryNotes.trim(),
-      sleep_prior: this.sleepPrior.trim(),
-      tags: splitTriggers(this.tagsText)
+      factors: Array.from(this.selectedFactors).join(", "),
+      tags: splitList(this.tagsText)
     };
     try {
       const file = await createEntryNote(this.app, this.plugin.settings, data);
@@ -806,7 +858,7 @@ function entriesToCsv(entries) {
     "thoughts",
     "duration_min",
     "recovery_notes",
-    "sleep_prior",
+    "factors",
     "tags",
     "file"
   ];
@@ -821,7 +873,7 @@ function entriesToCsv(entries) {
       e.thoughts,
       e.duration_min,
       e.recovery_notes,
-      e.sleep_prior,
+      e.factors,
       e.tags.join("; "),
       e.file.path
     ].map(csvCell).join(",")
@@ -852,6 +904,15 @@ function buildSummaryMarkdown(entries) {
     lines.push("## Triggers", "");
     lines.push("| Trigger | Times logged |", "| --- | ---: |");
     for (const { trigger, count } of triggers.slice(0, 20)) {
+      lines.push(`| ${trigger} | ${count} |`);
+    }
+    lines.push("");
+  }
+  const factors = factorCounts(entries);
+  if (factors.length > 0) {
+    lines.push("## Background factors", "");
+    lines.push("| Factor | Times logged |", "| --- | ---: |");
+    for (const { trigger, count } of factors.slice(0, 20)) {
       lines.push(`| ${trigger} | ${count} |`);
     }
     lines.push("");
@@ -962,6 +1023,11 @@ var DashboardView = class extends import_obsidian8.ItemView {
       const trigCard = this.card(root, "Triggers, by how often they show up");
       renderTriggerBars(trigCard, triggers);
     }
+    const factors = factorCounts(entries);
+    if (factors.length > 0) {
+      const factorCard = this.card(root, "Background factors (sleep, food, environment\u2026)");
+      renderTriggerBars(factorCard, factors);
+    }
     this.renderRecent(root, entries);
   }
   card(parent, title) {
@@ -1016,7 +1082,7 @@ var DashboardView = class extends import_obsidian8.ItemView {
         cls: "ssl-recent-date",
         text: `${(0, import_obsidian8.moment)(entry.date, "YYYY-MM-DD").format("ddd, MMM D")} \xB7 ${entry.time}`
       });
-      const triggers = splitTriggers(entry.trigger);
+      const triggers = splitList(entry.trigger);
       if (triggers.length > 0) {
         main.createDiv({ cls: "ssl-recent-trigger", text: triggers.join(", ") });
       }
@@ -1094,9 +1160,10 @@ var SpiralLoggerPlugin = class extends import_obsidian9.Plugin {
     void workspace.revealLeaf(leaf);
   }
   async loadSettings() {
-    var _a;
+    var _a, _b;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.settings.knownTriggers = [...(_a = this.settings.knownTriggers) != null ? _a : []];
+    this.settings.knownFactors = [...(_b = this.settings.knownFactors) != null ? _b : DEFAULT_SETTINGS.knownFactors];
   }
   async saveSettings() {
     await this.saveData(this.settings);

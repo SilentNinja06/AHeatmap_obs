@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, moment, setIcon } from "obsidian";
-import { SpiralEntry, kindInfo, SEVERITY_LABELS, splitTriggers } from "./types";
-import { getEntries, triggerCounts } from "./store";
+import { SpiralEntry, kindInfo, SEVERITY_LABELS, splitList } from "./types";
+import { getEntries, triggerCounts, factorCounts } from "./store";
 import { Tooltip, renderHeatmap, renderSeverityTrend, renderTriggerBars } from "./charts";
 import { QuickCaptureModal } from "./quickCapture";
 import { ThoughtCaptureModal } from "./thoughtCapture";
@@ -82,6 +82,12 @@ export class DashboardView extends ItemView {
 			renderTriggerBars(trigCard, triggers);
 		}
 
+		const factors = factorCounts(entries);
+		if (factors.length > 0) {
+			const factorCard = this.card(root, "Background factors (sleep, food, environment…)");
+			renderTriggerBars(factorCard, factors);
+		}
+
 		this.renderRecent(root, entries);
 	}
 
@@ -145,7 +151,7 @@ export class DashboardView extends ItemView {
 				cls: "ssl-recent-date",
 				text: `${moment(entry.date, "YYYY-MM-DD").format("ddd, MMM D")} · ${entry.time}`,
 			});
-			const triggers = splitTriggers(entry.trigger);
+			const triggers = splitList(entry.trigger);
 			if (triggers.length > 0) {
 				main.createDiv({ cls: "ssl-recent-trigger", text: triggers.join(", ") });
 			}

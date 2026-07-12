@@ -1,5 +1,5 @@
 import { App, Modal, Notice, Setting, TFile, moment, setIcon } from "obsidian";
-import { EntryData, KINDS, Kind, SEVERITY_LABELS, kindInfo, splitTriggers } from "./types";
+import { EntryData, KINDS, Kind, SEVERITY_LABELS, kindInfo, splitList } from "./types";
 import { createEntryNote } from "./store";
 import { linkInDailyNote } from "./dailyNote";
 import type SpiralLoggerPlugin from "./main";
@@ -15,11 +15,11 @@ export class QuickCaptureModal extends Modal {
 	private kind: Kind | null = null;
 	private severity: number | null = null;
 	private selectedTriggers = new Set<string>();
+	private selectedFactors = new Set<string>();
 	private warningSigns = "";
 	private thoughts = "";
 	private durationMin = 0;
 	private recoveryNotes = "";
-	private sleepPrior = "";
 	private tagsText = "";
 	private saveBtn!: HTMLButtonElement;
 	private saved = false;
@@ -89,48 +89,15 @@ export class QuickCaptureModal extends Modal {
 		details.createEl("summary", { text: "Add details (optional — you can also edit the note later)" });
 		const body = details.createDiv();
 
-		// Trigger chips from the known-trigger list + free text add
-		body.createDiv({ cls: "ssl-field-label", text: "Trigger" });
-		const chipWrap = body.createDiv({ cls: "ssl-chips" });
-		const renderChips = () => {
-			chipWrap.empty();
-			for (const trigger of this.plugin.settings.knownTriggers) {
-				const chip = chipWrap.createEl("button", { cls: "ssl-chip", text: trigger });
-				chip.toggleClass("is-selected", this.selectedTriggers.has(trigger));
-				chip.addEventListener("click", () => {
-					if (this.selectedTriggers.has(trigger)) this.selectedTriggers.delete(trigger);
-					else this.selectedTriggers.add(trigger);
-					chip.toggleClass("is-selected", this.selectedTriggers.has(trigger));
-				});
-			}
-		};
-		renderChips();
-
-		const addRow = body.createDiv({ cls: "ssl-add-trigger" });
-		const addInput = addRow.createEl("input", {
-			type: "text",
-			placeholder: "New trigger…",
-			cls: "ssl-text-input",
-		});
-		const addBtn = addRow.createEl("button", { cls: "ssl-chip-add", text: "Add" });
-		const addTrigger = async () => {
-			const value = addInput.value.trim();
-			if (!value) return;
-			if (!this.plugin.settings.knownTriggers.includes(value)) {
-				this.plugin.settings.knownTriggers.push(value);
-				await this.plugin.saveSettings();
-			}
-			this.selectedTriggers.add(value);
-			addInput.value = "";
-			renderChips();
-		};
-		addBtn.addEventListener("click", () => void addTrigger());
-		addInput.addEventListener("keydown", (evt) => {
-			if (evt.key === "Enter") {
-				evt.preventDefault();
-				void addTrigger();
-			}
-		});
+		// One-tap chips from remembered lists, with a free-text add that grows the list.
+		this.chipPicker(body, "Trigger", "New trigger…", this.selectedTriggers, () => this.plugin.settings.knownTriggers);
+		this.chipPicker(
+			body,
+			"Background factors (sleep, food, environment…)",
+			"New factor…",
+			this.selectedFactors,
+			() => this.plugin.settings.knownFactors
+		);
 
 		new Setting(body).setName("Warning signs").addText((t) =>
 			t.setPlaceholder("what led up to it").onChange((v) => (this.warningSigns = v))
@@ -150,12 +117,57 @@ export class QuickCaptureModal extends Modal {
 		new Setting(body).setName("Recovery notes").addText((t) =>
 			t.setPlaceholder("what helped").onChange((v) => (this.recoveryNotes = v))
 		);
-		new Setting(body).setName("Sleep the night before").addText((t) =>
-			t.setPlaceholder("e.g. 5h, restless").onChange((v) => (this.sleepPrior = v))
-		);
 		new Setting(body).setName("Tags").setDesc("Comma-separated.").addText((t) =>
 			t.setPlaceholder("work, sensory").onChange((v) => (this.tagsText = v))
 		);
+	}
+
+	/** A label + toggleable chip row + "add new" input backed by a persisted known-items list. */
+	private chipPicker(
+		body: HTMLElement,
+		label: string,
+		placeholder: string,
+		selected: Set<string>,
+		known: () => string[]
+	): void {
+		body.createDiv({ cls: "ssl-field-label", text: label });
+		const chipWrap = body.createDiv({ cls: "ssl-chips" });
+		const renderChips = () => {
+			chipWrap.empty();
+			for (const item of known()) {
+				const chip = chipWrap.createEl("button", { cls: "ssl-chip", text: item });
+				chip.toggleClass("is-selected", selected.has(item));
+				chip.addEventListener("click", () => {
+					if (selected.has(item)) selected.delete(item);
+					else selected.add(item);
+					chip.toggleClass("is-selected", selected.has(item));
+				});
+			}
+		};
+		renderChips();
+
+		const addRow = body.createDiv({ cls: "ssl-add-trigger" });
+		const addInput = addRow.createEl("input", { type: "text", placeholder, cls: "ssl-text-input" });
+		const addBtn = addRow.createEl("button", { cls: "ssl-chip-add", text: "Add" });
+		const addItem = async () => {
+			const value = addInput.value.trim();
+			if (!value) return;
+			const list = known();
+			if (!list.includes(value)) {
+				list.push(value);
+				await this.plugin.saveSettings();
+			}
+			selected.add(value);
+			addInput.value = "";
+			renderChips();
+		};
+		addBtn.addEventListener("click", () => void addItem());
+		addInput.addEventListener("keydown", (evt) => {
+			if (evt.key === "Enter") {
+				evt.preventDefault();
+				void addItem();
+			}
+		});
 	}
 
 	private updateSaveState(): void {
@@ -178,8 +190,8 @@ export class QuickCaptureModal extends Modal {
 			thoughts: this.thoughts.trim(),
 			duration_min: this.durationMin,
 			recovery_notes: this.recoveryNotes.trim(),
-			sleep_prior: this.sleepPrior.trim(),
-			tags: splitTriggers(this.tagsText),
+			factors: Array.from(this.selectedFactors).join(", "),
+			tags: splitList(this.tagsText),
 		};
 		try {
 			const file = await createEntryNote(this.app, this.plugin.settings, data);
