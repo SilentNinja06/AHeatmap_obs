@@ -1,21 +1,20 @@
 # Spiral & Shutdown Logger
 
-An Obsidian plugin for fast, low-friction logging of shutdowns, meltdowns, panic attacks, and anxiety spirals — with trigger tracking, a calm dashboard, and automatic daily-note linking.
+An Obsidian plugin for fast, low-friction logging of shutdowns, meltdowns, panic attacks, and anxiety spirals — with trigger, sensory, and factor tracking, a calm dashboard, and automatic daily-note linking.
 
-Built to be usable **during** a shutdown or panic attack: big touch targets, no required typing, no multi-step wizards. One tap saves a timestamped placeholder entry; detail can always be added later by editing the note.
+Built to be usable **during** a shutdown: big touch targets, no required typing, no wizards. One tap saves a timestamped placeholder; detail can always be added later by editing the note.
 
-## What it does
+## Features
 
-- **Quick capture** (`zap` ribbon icon, command palette, or a mobile toolbar button): tap a kind (shutdown / meltdown / panic attack / spiral / other), tap an intensity (1–5), tap save. Or tap **"Just save a timestamped entry now"** and decide nothing at all. Trigger chips, background-factor chips (sleep, food, environment…), thoughts, duration, recovery notes, and tags are all optional, behind a disclosure.
-- **Thought capture**: an instantly-focused textarea for dumping spiraling thoughts. It saves as its own timestamped note — even if you just close the window with text in it.
-- **Trigger, sensory & factor logs**: one-tap chips in the capture form for triggers, for sensory issues (bright light, loud noise, clothing texture, …), and for background factors (poor sleep, little food, …); new items are remembered automatically. The sensory list is your maintained sensitivity profile — its own dataset, deliberately separate from triggers — editable in settings. The dashboard shows how often each item comes up.
-- **Daily-note linking**: every entry and thought note is linked into that day's daily note (uses your Daily Notes plugin folder/format; toggleable). You control *where*: if the note contains the placement marker (`%% spiral-log %%` by default — put it in your daily-note template), links go right there; otherwise they go under the configured heading wherever it sits; the heading is only appended at the end as a last resort. If the daily note doesn't exist yet, it's created from your Daily Notes template (core `{{title}}` / `{{date}}` / `{{time}}` placeholders supported), so the marker and the rest of your layout are there from the start.
-- **Dashboard** (`activity` ribbon icon): a GitHub-style heatmap of when things have been happening, a weekly severity trend line, trigger / sensory / factor frequency bars, 30-day summary tiles, and a recent-entries list with tap-to-open. Charts use a single muted blue ramp — deliberately no reds — and are readable in dark mode.
-- **Export**: one command for a CSV of all entries, one for a formatted markdown summary (kind/trigger/monthly breakdowns plus a full log table) ready to bring to a psychiatrist or therapist appointment.
+- **Quick capture** (`zap` icon or command): tap a kind, tap an intensity (1–5), save — or "Just save a timestamped entry now" with zero decisions. Optional detail behind a disclosure: one-tap chips for **triggers**, **sensory issues** (your maintained sensitivity list), and **background factors** (sleep, food, environment), plus thoughts, duration, recovery notes, and tags. New chip items are remembered automatically.
+- **Thought capture** (`pencil-line` icon or command): an instantly-focused textarea for spiraling thoughts, saved as its own timestamped note — even if you just close it.
+- **Daily-note linking**: entries and thoughts are linked into that day's daily note. Placement: a `%% spiral-log %%` marker in the note (put it in your daily-note template) wins; else the configured heading, wherever it sits; else appended at the end. Missing daily notes are created from your Daily Notes template (core `{{title}}`/`{{date}}`/`{{time}}` placeholders supported).
+- **Dashboard** (`activity` icon or command): heatmap calendar, weekly severity trend, trigger / sensory / factor frequency bars, 30-day stat tiles, recent entries, and recent **thought notes with content previews** — all tap-to-open. Muted single-hue palette, readable in dark mode, no reds.
+- **Export**: CSV of all entries, and a markdown summary (kind / trigger / sensory / factor / monthly breakdowns + full log table) for clinician appointments.
 
 ## Data format — no lock-in
 
-Every entry is a plain markdown note with YAML frontmatter, one note per entry, in a folder you choose (default `Spiral Log/`):
+One markdown note per entry, plain YAML frontmatter, in a folder you choose (default `Spiral Log/`):
 
 ```yaml
 type: spiral-entry
@@ -24,42 +23,23 @@ time: "21:40"
 kind: shutdown          # shutdown | meltdown | panic-attack | spiral | other
 severity: 3             # 1-5
 trigger: "schedule change"
-sensory: "loud noise, bright / fluorescent light"   # from your maintained sensitivity list
+sensory: "loud noise"
 warning_signs: ""
 thoughts: ""
 duration_min: 0
 recovery_notes: ""
-factors: "poor sleep, little food today"   # background contributors: sleep, food, environment, …
+factors: "poor sleep"
 tags: []
 ```
 
-Thought notes use `type: spiral-thought` with the raw text as the note body. (Entries written by pre-1.0 builds used `sleep_prior` instead of `factors`; those are still read.)
-
-Entries are discovered by the `type: spiral-entry` frontmatter, not by path — you can move, rename, and reorganize notes freely, and everything stays greppable and Dataview-queryable if you ever stop using the plugin.
+Thought notes use `type: spiral-thought` with the text as the body. Notes are discovered by frontmatter type, not path — move and rename them freely; everything stays greppable and Dataview-queryable.
 
 ## Install
 
-### Via BRAT (recommended until this is in the community list)
+**BRAT**: add beta plugin `SilentNinja06/AHeatmap_obs` (a GitHub token is needed in BRAT settings while this repo is private).
+**Manual**: copy `manifest.json`, `main.js`, `styles.css` from the latest release into `<vault>/.obsidian/plugins/spiral-shutdown-logger/`.
 
-1. Install the [BRAT](https://github.com/TfTHacker/obsidian42-brat) community plugin.
-2. In BRAT settings, choose **Add beta plugin** and enter `SilentNinja06/AHeatmap_obs`.
-3. Enable **Spiral & Shutdown Logger** in Community plugins.
-
-### Manual
-
-Copy `manifest.json`, `main.js`, and `styles.css` from the latest release into `<vault>/.obsidian/plugins/spiral-shutdown-logger/` and enable the plugin.
-
-## Mobile setup tip
-
-For true one-tap access on mobile, add the **"Log an entry (quick capture)"** command to the mobile toolbar (Settings → Toolbar). The ribbon icons work on mobile too.
-
-## Settings
-
-- Entry / thoughts / export folder locations
-- Filename template (`{{date}} {{time}} {{kind}}`)
-- Daily-note linking toggle, heading, placement marker, and create-if-missing behavior
-- Known triggers, sensory sensitivities, and factors lists (editable; auto-populated as you log)
-- Heatmap history length
+On mobile, add the "Log an entry (quick capture)" command to the toolbar for one-tap access.
 
 ## Developing
 
@@ -69,7 +49,7 @@ npm run dev     # watch build
 npm run build   # typecheck + production build → main.js
 ```
 
-Releases: tag `x.y.z` (matching `manifest.json`) and the GitHub Action builds and attaches `main.js`, `manifest.json`, and `styles.css` to the release, which is what BRAT consumes.
+Release: bump the version in `manifest.json` / `package.json` / `versions.json`, push, then run the "Release plugin" workflow (or push a matching tag).
 
 ## License
 

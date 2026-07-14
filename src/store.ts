@@ -51,7 +51,7 @@ export function buildEntryContent(data: EntryData): string {
 		"",
 		`# ${label} — ${data.date} ${data.time}`,
 		"",
-		"> Logged with Spiral & Shutdown Logger. Everything above is editable — fill in detail whenever you're ready, or leave it as is.",
+		"> Everything above is editable — add detail whenever you're ready, or leave it as is.",
 		"",
 		"## Notes",
 		"",
@@ -135,7 +135,7 @@ function coerceKind(v: unknown): Kind {
 
 /** All spiral entries in the vault, newest first. Matches on frontmatter type, not path,
  *  so entries keep working if the user reorganizes their folders. */
-export function getEntries(app: App, _settings: SpiralLoggerSettings): SpiralEntry[] {
+export function getEntries(app: App): SpiralEntry[] {
 	const entries: SpiralEntry[] = [];
 	for (const file of app.vault.getMarkdownFiles()) {
 		const fm = app.metadataCache.getFileCache(file)?.frontmatter;
@@ -161,6 +161,36 @@ export function getEntries(app: App, _settings: SpiralLoggerSettings): SpiralEnt
 	}
 	entries.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
 	return entries;
+}
+
+export interface ThoughtNote {
+	file: TFile;
+	date: string;
+	time: string;
+}
+
+/** All thought-capture notes, newest first. */
+export function getThoughts(app: App): ThoughtNote[] {
+	const thoughts: ThoughtNote[] = [];
+	for (const file of app.vault.getMarkdownFiles()) {
+		const fm = app.metadataCache.getFileCache(file)?.frontmatter;
+		if (!fm || fm.type !== THOUGHT_TYPE) continue;
+		const date = str(fm.date).slice(0, 10);
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+		thoughts.push({ file, date, time: str(fm.time) });
+	}
+	thoughts.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+	return thoughts;
+}
+
+/** First ~`max` characters of a thought note's body, frontmatter stripped. */
+export async function thoughtPreview(app: App, file: TFile, max = 140): Promise<string> {
+	const raw = await app.vault.cachedRead(file);
+	const body = raw
+		.replace(/^---\n[\s\S]*?\n---\n?/, "")
+		.replace(/\s+/g, " ")
+		.trim();
+	return body.length > max ? body.slice(0, max).trimEnd() + "…" : body;
 }
 
 /** Frequency of items in a comma-separated field across entries, most frequent first. */

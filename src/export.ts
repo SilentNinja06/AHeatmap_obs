@@ -144,14 +144,14 @@ async function writeExport(app: App, folder: string, filename: string, content: 
 }
 
 export async function exportCsv(app: App, settings: SpiralLoggerSettings): Promise<void> {
-	const entries = getEntries(app, settings);
+	const entries = getEntries(app);
 	const stamp = moment().format("YYYY-MM-DD");
 	const file = await writeExport(app, settings.exportFolder, `spiral-log-${stamp}.csv`, entriesToCsv(entries));
 	new Notice(`Exported ${entries.length} entries to ${file.path}`);
 }
 
 export async function exportSummary(app: App, settings: SpiralLoggerSettings): Promise<void> {
-	const entries = getEntries(app, settings);
+	const entries = getEntries(app);
 	const stamp = moment().format("YYYY-MM-DD");
 	const file = await writeExport(app, settings.exportFolder, `spiral-log-summary-${stamp}.md`, buildSummaryMarkdown(entries));
 	await app.workspace.openLinkText(file.path, "", true);

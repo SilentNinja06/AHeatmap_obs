@@ -72,7 +72,7 @@ var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     new import_obsidian.Setting(containerEl).setName("Storage").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Entry folder").setDesc("Where new entry notes are created. Every note in this folder with `type: spiral-entry` frontmatter is picked up, so you can move or rename notes freely.").addText(
+    new import_obsidian.Setting(containerEl).setName("Entry folder").setDesc("Where new entry notes are created. Entries are found by their frontmatter type, not this path, so you can move notes anywhere later.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.entryFolder).setValue(this.plugin.settings.entryFolder).onChange(async (value) => {
         this.plugin.settings.entryFolder = value.trim() || DEFAULT_SETTINGS.entryFolder;
         await this.plugin.saveSettings();
@@ -109,34 +109,34 @@ var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Daily note heading").setDesc("Links are inserted under this heading, wherever it sits in the note \u2014 add it to your daily-note template to control the position. It's only created at the end of the note if it doesn't exist.").addText(
+    new import_obsidian.Setting(containerEl).setName("Daily note heading").setDesc("Links go under this heading wherever it sits; it's only appended at the end if missing.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.dailyNoteHeading).setValue(this.plugin.settings.dailyNoteHeading).onChange(async (value) => {
         this.plugin.settings.dailyNoteHeading = value.trim() || DEFAULT_SETTINGS.dailyNoteHeading;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Placement marker").setDesc("If this text appears anywhere in the daily note (e.g. from your template), links are inserted right after it instead of under the heading. Useful for pinning an exact spot without a visible heading. Leave empty to disable.").addText(
+    new import_obsidian.Setting(containerEl).setName("Placement marker").setDesc("If present in the daily note (e.g. from your template), links are inserted right after it, taking priority over the heading. Empty disables.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.dailyNoteMarker).setValue(this.plugin.settings.dailyNoteMarker).onChange(async (value) => {
         this.plugin.settings.dailyNoteMarker = value.trim();
         await this.plugin.saveSettings();
       })
     );
     new import_obsidian.Setting(containerEl).setName("Triggers, factors & dashboard").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Known triggers").setDesc("One per line. These show as one-tap chips in the quick-capture form. Triggers typed during capture are added here automatically.").addTextArea((text) => {
+    new import_obsidian.Setting(containerEl).setName("Known triggers").setDesc("One per line; shown as one-tap chips in quick capture and auto-grown from it.").addTextArea((text) => {
       text.setPlaceholder("crowds\nloud noise\nschedule change").setValue(this.plugin.settings.knownTriggers.join("\n")).onChange(async (value) => {
         this.plugin.settings.knownTriggers = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
         await this.plugin.saveSettings();
       });
       text.inputEl.rows = 6;
     });
-    new import_obsidian.Setting(containerEl).setName("Known factors").setDesc("Background contributors \u2014 sleep, food, environment, and so on. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.").addTextArea((text) => {
+    new import_obsidian.Setting(containerEl).setName("Known factors").setDesc("Background contributors \u2014 sleep, food, environment. One per line; shown as chips in quick capture and auto-grown from it.").addTextArea((text) => {
       text.setPlaceholder("poor sleep\nlittle food today\nloud environment").setValue(this.plugin.settings.knownFactors.join("\n")).onChange(async (value) => {
         this.plugin.settings.knownFactors = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
         await this.plugin.saveSettings();
       });
       text.inputEl.rows = 6;
     });
-    new import_obsidian.Setting(containerEl).setName("Sensory sensitivities").setDesc("Your maintained list of sensory things that are problematic \u2014 this is its own dataset, separate from triggers. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.").addTextArea((text) => {
+    new import_obsidian.Setting(containerEl).setName("Sensory sensitivities").setDesc("Your maintained list of problematic sensory inputs \u2014 its own dataset, separate from triggers. One per line; shown as chips in quick capture and auto-grown from it.").addTextArea((text) => {
       text.setPlaceholder("bright / fluorescent light\nloud noise\nclothing texture / tags").setValue(this.plugin.settings.knownSensory.join("\n")).onChange(async (value) => {
         this.plugin.settings.knownSensory = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
         await this.plugin.saveSettings();
@@ -221,7 +221,7 @@ function buildEntryContent(data) {
     "",
     `# ${label} \u2014 ${data.date} ${data.time}`,
     "",
-    "> Logged with Spiral & Shutdown Logger. Everything above is editable \u2014 fill in detail whenever you're ready, or leave it as is.",
+    "> Everything above is editable \u2014 add detail whenever you're ready, or leave it as is.",
     "",
     "## Notes",
     ""
@@ -277,7 +277,7 @@ function coerceKind(v) {
   const s = str(v);
   return KINDS.some((k) => k.value === s) ? s : "other";
 }
-function getEntries(app, _settings) {
+function getEntries(app) {
   var _a;
   const entries = [];
   for (const file of app.vault.getMarkdownFiles()) {
@@ -304,6 +304,24 @@ function getEntries(app, _settings) {
   }
   entries.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
   return entries;
+}
+function getThoughts(app) {
+  var _a;
+  const thoughts = [];
+  for (const file of app.vault.getMarkdownFiles()) {
+    const fm = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+    if (!fm || fm.type !== THOUGHT_TYPE) continue;
+    const date = str(fm.date).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    thoughts.push({ file, date, time: str(fm.time) });
+  }
+  thoughts.sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  return thoughts;
+}
+async function thoughtPreview(app, file, max = 140) {
+  const raw = await app.vault.cachedRead(file);
+  const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").replace(/\s+/g, " ").trim();
+  return body.length > max ? body.slice(0, max).trimEnd() + "\u2026" : body;
 }
 function valueCounts(entries, field) {
   var _a;
@@ -1013,13 +1031,13 @@ async function writeExport(app, folder, filename, content) {
   return await app.vault.create(path, content);
 }
 async function exportCsv(app, settings) {
-  const entries = getEntries(app, settings);
+  const entries = getEntries(app);
   const stamp = (0, import_obsidian7.moment)().format("YYYY-MM-DD");
   const file = await writeExport(app, settings.exportFolder, `spiral-log-${stamp}.csv`, entriesToCsv(entries));
   new import_obsidian7.Notice(`Exported ${entries.length} entries to ${file.path}`);
 }
 async function exportSummary(app, settings) {
-  const entries = getEntries(app, settings);
+  const entries = getEntries(app);
   const stamp = (0, import_obsidian7.moment)().format("YYYY-MM-DD");
   const file = await writeExport(app, settings.exportFolder, `spiral-log-summary-${stamp}.md`, buildSummaryMarkdown(entries));
   await app.workspace.openLinkText(file.path, "", true);
@@ -1033,6 +1051,8 @@ var DashboardView = class extends import_obsidian8.ItemView {
     super(leaf);
     this.tooltip = null;
     this.renderTimer = null;
+    this.resizeObserver = null;
+    this.lastWidth = 0;
     this.plugin = plugin;
   }
   getViewType() {
@@ -1048,29 +1068,40 @@ var DashboardView = class extends import_obsidian8.ItemView {
     this.registerEvent(this.app.metadataCache.on("changed", () => this.scheduleRender()));
     this.registerEvent(this.app.vault.on("delete", () => this.scheduleRender()));
     this.registerEvent(this.app.vault.on("rename", () => this.scheduleRender()));
-    this.render();
+    this.resizeObserver = new ResizeObserver(() => {
+      const width = this.contentEl.clientWidth;
+      if (Math.abs(width - this.lastWidth) > 32) this.scheduleRender();
+    });
+    this.resizeObserver.observe(this.contentEl);
+    await this.render();
   }
   scheduleRender() {
     if (this.renderTimer !== null) window.clearTimeout(this.renderTimer);
     this.renderTimer = window.setTimeout(() => {
       this.renderTimer = null;
-      this.render();
+      void this.render();
     }, 400);
   }
-  render() {
+  async render() {
     const root = this.contentEl;
+    this.lastWidth = root.clientWidth;
     root.empty();
     root.addClass("ssl-dashboard");
     this.tooltip = new Tooltip(root);
-    const entries = getEntries(this.app, this.plugin.settings);
+    const entries = getEntries(this.app);
+    const thoughts = getThoughts(this.app);
     this.renderActions(root);
-    if (entries.length === 0) {
+    if (entries.length === 0 && thoughts.length === 0) {
       const empty = root.createDiv({ cls: "ssl-empty" });
       empty.createDiv({ cls: "ssl-empty-title", text: "Nothing logged yet" });
       empty.createDiv({
         cls: "ssl-empty-body",
         text: "When something happens, tap \u201CLog now\u201D \u2014 kind and intensity are enough, detail can wait."
       });
+      return;
+    }
+    if (entries.length === 0) {
+      await this.renderThoughts(root, thoughts);
       return;
     }
     this.renderStats(root, entries);
@@ -1094,6 +1125,32 @@ var DashboardView = class extends import_obsidian8.ItemView {
       renderTriggerBars(factorCard, factors);
     }
     this.renderRecent(root, entries);
+    await this.renderThoughts(root, thoughts);
+  }
+  /** Recent thought-capture notes with a snippet of their content, tap to open. */
+  async renderThoughts(root, thoughts) {
+    if (thoughts.length === 0) return;
+    const card = this.card(root, "Spiraling thoughts");
+    const list = card.createDiv({ cls: "ssl-recent" });
+    for (const thought of thoughts.slice(0, 6)) {
+      const preview = await thoughtPreview(this.app, thought.file);
+      const row = list.createEl("button", { cls: "ssl-recent-row" });
+      (0, import_obsidian8.setIcon)(row.createSpan({ cls: "ssl-btn-icon ssl-recent-icon" }), "pencil-line");
+      const main = row.createDiv({ cls: "ssl-recent-main" });
+      main.createDiv({
+        cls: "ssl-recent-head"
+      }).createSpan({
+        cls: "ssl-recent-date",
+        text: `${(0, import_obsidian8.moment)(thought.date, "YYYY-MM-DD").format("ddd, MMM D")} \xB7 ${thought.time}`
+      });
+      main.createDiv({ cls: "ssl-thought-preview", text: preview || "(empty)" });
+      row.addEventListener("click", () => {
+        void this.app.workspace.openLinkText(thought.file.path, "", false);
+      });
+    }
+    if (thoughts.length > 6) {
+      list.createDiv({ cls: "ssl-bars-more", text: `+ ${thoughts.length - 6} older thought notes in the folder` });
+    }
   }
   card(parent, title) {
     const card = parent.createDiv({ cls: "ssl-card" });
@@ -1165,7 +1222,9 @@ var DashboardView = class extends import_obsidian8.ItemView {
     }
   }
   async onClose() {
+    var _a;
     if (this.renderTimer !== null) window.clearTimeout(this.renderTimer);
+    (_a = this.resizeObserver) == null ? void 0 : _a.disconnect();
     this.contentEl.empty();
   }
 };

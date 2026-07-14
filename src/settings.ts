@@ -65,7 +65,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Entry folder")
-			.setDesc("Where new entry notes are created. Every note in this folder with `type: spiral-entry` frontmatter is picked up, so you can move or rename notes freely.")
+			.setDesc("Where new entry notes are created. Entries are found by their frontmatter type, not this path, so you can move notes anywhere later.")
 			.addText((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.entryFolder)
@@ -139,7 +139,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Daily note heading")
-			.setDesc("Links are inserted under this heading, wherever it sits in the note — add it to your daily-note template to control the position. It's only created at the end of the note if it doesn't exist.")
+			.setDesc("Links go under this heading wherever it sits; it's only appended at the end if missing.")
 			.addText((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.dailyNoteHeading)
@@ -152,7 +152,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Placement marker")
-			.setDesc("If this text appears anywhere in the daily note (e.g. from your template), links are inserted right after it instead of under the heading. Useful for pinning an exact spot without a visible heading. Leave empty to disable.")
+			.setDesc("If present in the daily note (e.g. from your template), links are inserted right after it, taking priority over the heading. Empty disables.")
 			.addText((text) =>
 				text
 					.setPlaceholder(DEFAULT_SETTINGS.dailyNoteMarker)
@@ -167,7 +167,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Known triggers")
-			.setDesc("One per line. These show as one-tap chips in the quick-capture form. Triggers typed during capture are added here automatically.")
+			.setDesc("One per line; shown as one-tap chips in quick capture and auto-grown from it.")
 			.addTextArea((text) => {
 				text.setPlaceholder("crowds\nloud noise\nschedule change")
 					.setValue(this.plugin.settings.knownTriggers.join("\n"))
@@ -183,7 +183,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Known factors")
-			.setDesc("Background contributors — sleep, food, environment, and so on. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.")
+			.setDesc("Background contributors — sleep, food, environment. One per line; shown as chips in quick capture and auto-grown from it.")
 			.addTextArea((text) => {
 				text.setPlaceholder("poor sleep\nlittle food today\nloud environment")
 					.setValue(this.plugin.settings.knownFactors.join("\n"))
@@ -199,7 +199,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Sensory sensitivities")
-			.setDesc("Your maintained list of sensory things that are problematic — this is its own dataset, separate from triggers. One per line; shown as one-tap chips in the quick-capture form and added here automatically when typed during capture.")
+			.setDesc("Your maintained list of problematic sensory inputs — its own dataset, separate from triggers. One per line; shown as chips in quick capture and auto-grown from it.")
 			.addTextArea((text) => {
 				text.setPlaceholder("bright / fluorescent light\nloud noise\nclothing texture / tags")
 					.setValue(this.plugin.settings.knownSensory.join("\n"))

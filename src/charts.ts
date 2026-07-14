@@ -61,7 +61,7 @@ interface DayBucket {
 	maxSeverity: number;
 }
 
-export function bucketByDay(entries: SpiralEntry[]): Map<string, DayBucket> {
+function bucketByDay(entries: SpiralEntry[]): Map<string, DayBucket> {
 	const days = new Map<string, DayBucket>();
 	for (const e of entries) {
 		let bucket = days.get(e.date);

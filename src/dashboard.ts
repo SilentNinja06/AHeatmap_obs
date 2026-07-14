@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, moment, setIcon } from "obsidian";
 import { SpiralEntry, kindInfo, SEVERITY_LABELS, splitList } from "./types";
-import { getEntries, triggerCounts, factorCounts, sensoryCounts } from "./store";
+import { getEntries, getThoughts, thoughtPreview, triggerCounts, factorCounts, sensoryCounts } from "./store";
 import { Tooltip, renderHeatmap, renderSeverityTrend, renderTriggerBars } from "./charts";
 import { QuickCaptureModal } from "./quickCapture";
 import { ThoughtCaptureModal } from "./thoughtCapture";
@@ -13,6 +13,8 @@ export class DashboardView extends ItemView {
 	private plugin: SpiralLoggerPlugin;
 	private tooltip: Tooltip | null = null;
 	private renderTimer: number | null = null;
+	private resizeObserver: ResizeObserver | null = null;
+	private lastWidth = 0;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SpiralLoggerPlugin) {
 		super(leaf);
@@ -37,34 +39,50 @@ export class DashboardView extends ItemView {
 		this.registerEvent(this.app.metadataCache.on("changed", () => this.scheduleRender()));
 		this.registerEvent(this.app.vault.on("delete", () => this.scheduleRender()));
 		this.registerEvent(this.app.vault.on("rename", () => this.scheduleRender()));
-		this.render();
+
+		// Charts are sized from the pane width, so re-render when it changes
+		// (also fixes the first render, which can happen before layout at width 0).
+		this.resizeObserver = new ResizeObserver(() => {
+			const width = this.contentEl.clientWidth;
+			if (Math.abs(width - this.lastWidth) > 32) this.scheduleRender();
+		});
+		this.resizeObserver.observe(this.contentEl);
+
+		await this.render();
 	}
 
 	private scheduleRender(): void {
 		if (this.renderTimer !== null) window.clearTimeout(this.renderTimer);
 		this.renderTimer = window.setTimeout(() => {
 			this.renderTimer = null;
-			this.render();
+			void this.render();
 		}, 400);
 	}
 
-	private render(): void {
+	private async render(): Promise<void> {
 		const root = this.contentEl;
+		this.lastWidth = root.clientWidth;
 		root.empty();
 		root.addClass("ssl-dashboard");
 		this.tooltip = new Tooltip(root);
 
-		const entries = getEntries(this.app, this.plugin.settings);
+		const entries = getEntries(this.app);
+		const thoughts = getThoughts(this.app);
 
 		this.renderActions(root);
 
-		if (entries.length === 0) {
+		if (entries.length === 0 && thoughts.length === 0) {
 			const empty = root.createDiv({ cls: "ssl-empty" });
 			empty.createDiv({ cls: "ssl-empty-title", text: "Nothing logged yet" });
 			empty.createDiv({
 				cls: "ssl-empty-body",
 				text: "When something happens, tap “Log now” — kind and intensity are enough, detail can wait.",
 			});
+			return;
+		}
+
+		if (entries.length === 0) {
+			await this.renderThoughts(root, thoughts);
 			return;
 		}
 
@@ -95,6 +113,33 @@ export class DashboardView extends ItemView {
 		}
 
 		this.renderRecent(root, entries);
+		await this.renderThoughts(root, thoughts);
+	}
+
+	/** Recent thought-capture notes with a snippet of their content, tap to open. */
+	private async renderThoughts(root: HTMLElement, thoughts: ReturnType<typeof getThoughts>): Promise<void> {
+		if (thoughts.length === 0) return;
+		const card = this.card(root, "Spiraling thoughts");
+		const list = card.createDiv({ cls: "ssl-recent" });
+		for (const thought of thoughts.slice(0, 6)) {
+			const preview = await thoughtPreview(this.app, thought.file);
+			const row = list.createEl("button", { cls: "ssl-recent-row" });
+			setIcon(row.createSpan({ cls: "ssl-btn-icon ssl-recent-icon" }), "pencil-line");
+			const main = row.createDiv({ cls: "ssl-recent-main" });
+			main.createDiv({
+				cls: "ssl-recent-head",
+			}).createSpan({
+				cls: "ssl-recent-date",
+				text: `${moment(thought.date, "YYYY-MM-DD").format("ddd, MMM D")} · ${thought.time}`,
+			});
+			main.createDiv({ cls: "ssl-thought-preview", text: preview || "(empty)" });
+			row.addEventListener("click", () => {
+				void this.app.workspace.openLinkText(thought.file.path, "", false);
+			});
+		}
+		if (thoughts.length > 6) {
+			list.createDiv({ cls: "ssl-bars-more", text: `+ ${thoughts.length - 6} older thought notes in the folder` });
+		}
 	}
 
 	private card(parent: HTMLElement, title: string): HTMLElement {
@@ -179,6 +224,7 @@ export class DashboardView extends ItemView {
 
 	async onClose(): Promise<void> {
 		if (this.renderTimer !== null) window.clearTimeout(this.renderTimer);
+		this.resizeObserver?.disconnect();
 		this.contentEl.empty();
 	}
 }
