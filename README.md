@@ -37,7 +37,7 @@ Thought notes use `type: spiral-thought` with the text as the body. Notes are di
 
 ## Install
 
-**BRAT**: add beta plugin `SilentNinja06/AHeatmap_obs` (a GitHub token is needed in BRAT settings while this repo is private).
+**BRAT**: add beta plugin `SilentNinja06/AHeatmap_obs`.
 **Manual**: copy `manifest.json`, `main.js`, `styles.css` from the latest release into `<vault>/.obsidian/plugins/spiral-shutdown-logger/`.
 
 On mobile, add the "Log an entry (quick capture)" command to the toolbar for one-tap access.
