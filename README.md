@@ -10,6 +10,7 @@ Built to be usable **during** a shutdown: big touch targets, no required typing,
 - **Thought capture** (`pencil-line` icon or command): an instantly-focused textarea for spiraling thoughts, saved as its own timestamped note — even if you just close it.
 - **Daily-note linking**: entries and thoughts are linked into that day's daily note. Placement: a `%% spiral-log %%` marker in the note (put it in your daily-note template) wins; else the configured heading, wherever it sits; else appended at the end. Missing daily notes are created from your Daily Notes template (core `{{title}}`/`{{date}}`/`{{time}}` placeholders supported).
 - **Dashboard** (`activity` icon or command): heatmap calendar, weekly severity trend, trigger / sensory / factor frequency bars, 30-day stat tiles, recent entries, and recent **thought notes with content previews** — all tap-to-open. Muted single-hue palette, readable in dark mode, no reds.
+- **Dashboards**: with the Daily Dashboard installed, a card shows how many entries today and in the last 7 days (counts only, no details) with a Log button. Without a dashboard, you can set this plugin's dashboard to open when Obsidian starts (per device).
 - **Export**: CSV of all entries, and a markdown summary (kind / trigger / sensory / factor / monthly breakdowns + full log table) for clinician appointments.
 
 ## Data format — no lock-in

@@ -5,6 +5,9 @@ import { ThoughtCaptureModal } from "./thoughtCapture";
 import { DashboardView, DASHBOARD_VIEW_TYPE } from "./dashboard";
 import { exportCsv, exportSummary } from "./export";
 import { getEntries } from "./store";
+import { openViewOnStartup } from "./startup";
+
+const DAY = 86_400_000;
 
 function isoToday(): string {
 	const d = new Date();
@@ -37,12 +40,42 @@ export default class SpiralLoggerPlugin extends Plugin {
 			const entries = getEntries(this.app).filter((e) => e.date === today);
 			return { date: today, count: entries.length };
 		},
+		/** 1.3+: counts only (no kinds, triggers or notes), for a dashboard card
+		 * that may be seen by others. `last7` includes today. */
+		getCounts: () => {
+			const today = isoToday();
+			const d = new Date(Date.now() - 6 * DAY);
+			const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+			let todayCount = 0;
+			let last7 = 0;
+			for (const e of getEntries(this.app)) {
+				if (e.date === today) todayCount++;
+				if (e.date >= from && e.date <= today) last7++;
+			}
+			return { date: today, today: todayCount, last7 };
+		},
+		/** 1.3+: called when entries may have changed. Returns an unsubscribe. */
+		onChange: (cb: () => void): (() => void) => {
+			const refs = [this.app.metadataCache.on("changed", () => cb()), this.app.vault.on("delete", () => cb())];
+			return () => {
+				this.app.metadataCache.offref(refs[0]);
+				this.app.vault.offref(refs[1]);
+			};
+		},
+		/** 1.3+ */
+		openCapture: () => new QuickCaptureModal(this.app, this).open(),
+		/** 1.3+ */
+		openThoughts: () => new ThoughtCaptureModal(this.app, this).open(),
+		/** 1.3+ */
+		openDashboard: () => void this.activateDashboard(),
 	};
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
 		this.registerView(DASHBOARD_VIEW_TYPE, (leaf: WorkspaceLeaf) => new DashboardView(leaf, this));
+		// Open on startup (this device, and only without a dashboard installed).
+		this.app.workspace.onLayoutReady(() => void openViewOnStartup(this.app, "spiral-shutdown-logger", DASHBOARD_VIEW_TYPE));
 
 		// Ribbon: quick capture is the primary action (1 tap from anywhere → modal → save).
 		this.addRibbonIcon("zap", "Log a spiral / shutdown entry", () => {

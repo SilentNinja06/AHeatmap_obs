@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type SpiralLoggerPlugin from "./main";
+import { startupSetting } from "./startup";
 
 export interface SpiralLoggerSettings {
 	entryFolder: string;
@@ -60,6 +61,7 @@ export class SpiralLoggerSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		startupSetting(containerEl, this.app, "spiral-shutdown-logger", "the dashboard");
 
 		new Setting(containerEl).setName("Storage").setHeading();
 

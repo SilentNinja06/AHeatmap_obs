@@ -13,9 +13,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    for (let key2 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key2) && key2 !== except)
+        __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });
   }
   return to;
 };
@@ -27,10 +27,58 @@ __export(main_exports, {
   default: () => SpiralLoggerPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // src/settings.ts
+var import_obsidian2 = require("obsidian");
+
+// src/startup.ts
 var import_obsidian = require("obsidian");
+var DASHBOARD_PLUGIN_IDS = ["meridian-dash", "daily-dash"];
+function dashboardInstalled(app) {
+  var _a;
+  const enabled = (_a = app.plugins) == null ? void 0 : _a.enabledPlugins;
+  return DASHBOARD_PLUGIN_IDS.some((id) => {
+    var _a2;
+    return (_a2 = enabled == null ? void 0 : enabled.has) == null ? void 0 : _a2.call(enabled, id);
+  });
+}
+var key = (pluginId) => `${pluginId}:open-on-startup`;
+function opensOnStartup(app, pluginId) {
+  try {
+    return app.loadLocalStorage(key(pluginId)) === true;
+  } catch (e) {
+    return false;
+  }
+}
+function startupSetting(container, app, pluginId, label) {
+  if (dashboardInstalled(app)) return;
+  new import_obsidian.Setting(container).setName(`Open ${label} when Obsidian starts`).setDesc("On this device. Hidden while a dashboard (MERIDIAN Dash or Daily Dashboard) is installed, since that opens first.").addToggle(
+    (t) => t.setValue(opensOnStartup(app, pluginId)).onChange((v) => {
+      try {
+        app.saveLocalStorage(key(pluginId), v ? true : null);
+      } catch (e) {
+      }
+    })
+  );
+}
+async function openViewOnStartup(app, pluginId, viewType) {
+  var _a, _b;
+  if (dashboardInstalled(app) || !opensOnStartup(app, pluginId)) return;
+  const ws = app.workspace;
+  const existing = ws.getLeavesOfType(viewType)[0];
+  if (existing) {
+    ws.revealLeaf(existing);
+    return;
+  }
+  const active = ws.getMostRecentLeaf();
+  const empty = active && ((_b = (_a = active.view) == null ? void 0 : _a.getViewType) == null ? void 0 : _b.call(_a)) === "empty";
+  const leaf = empty ? active : ws.getLeaf("tab");
+  await leaf.setViewState({ type: viewType, active: true });
+  ws.revealLeaf(leaf);
+}
+
+// src/settings.ts
 var DEFAULT_SETTINGS = {
   entryFolder: "Spiral Log",
   thoughtFolder: "Spiral Log/Thoughts",
@@ -63,7 +111,7 @@ var DEFAULT_SETTINGS = {
   ],
   heatmapWeeks: 20
 };
-var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
+var SpiralLoggerSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -71,79 +119,80 @@ var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian.Setting(containerEl).setName("Storage").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Entry folder").setDesc("Where new entry notes are created. Entries are found by their frontmatter type, not this path, so you can move notes anywhere later.").addText(
+    startupSetting(containerEl, this.app, "spiral-shutdown-logger", "the dashboard");
+    new import_obsidian2.Setting(containerEl).setName("Storage").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Entry folder").setDesc("Where new entry notes are created. Entries are found by their frontmatter type, not this path, so you can move notes anywhere later.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.entryFolder).setValue(this.plugin.settings.entryFolder).onChange(async (value) => {
         this.plugin.settings.entryFolder = value.trim() || DEFAULT_SETTINGS.entryFolder;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Thoughts folder").setDesc("Where quick thought-capture notes are created.").addText(
+    new import_obsidian2.Setting(containerEl).setName("Thoughts folder").setDesc("Where quick thought-capture notes are created.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.thoughtFolder).setValue(this.plugin.settings.thoughtFolder).onChange(async (value) => {
         this.plugin.settings.thoughtFolder = value.trim() || DEFAULT_SETTINGS.thoughtFolder;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Export folder").setDesc("Where CSV exports and markdown summaries are written.").addText(
+    new import_obsidian2.Setting(containerEl).setName("Export folder").setDesc("Where CSV exports and markdown summaries are written.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.exportFolder).setValue(this.plugin.settings.exportFolder).onChange(async (value) => {
         this.plugin.settings.exportFolder = value.trim() || DEFAULT_SETTINGS.exportFolder;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Filename template").setDesc("Placeholders: {{date}} (YYYY-MM-DD), {{time}} (HH-mm), {{kind}}. A numeric suffix is added if the name already exists.").addText(
+    new import_obsidian2.Setting(containerEl).setName("Filename template").setDesc("Placeholders: {{date}} (YYYY-MM-DD), {{time}} (HH-mm), {{kind}}. A numeric suffix is added if the name already exists.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.filenameTemplate).setValue(this.plugin.settings.filenameTemplate).onChange(async (value) => {
         this.plugin.settings.filenameTemplate = value.trim() || DEFAULT_SETTINGS.filenameTemplate;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Daily notes").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Link entries into the daily note").setDesc("When an entry or thought note is logged, add a link to it under a heading in that day's daily note.").addToggle(
+    new import_obsidian2.Setting(containerEl).setName("Daily notes").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Link entries into the daily note").setDesc("When an entry or thought note is logged, add a link to it under a heading in that day's daily note.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.dailyNoteLinking).onChange(async (value) => {
         this.plugin.settings.dailyNoteLinking = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Create the daily note if it doesn't exist").setDesc("Uses your Daily Notes plugin folder and date format.").addToggle(
+    new import_obsidian2.Setting(containerEl).setName("Create the daily note if it doesn't exist").setDesc("Uses your Daily Notes plugin folder and date format.").addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.createDailyNoteIfMissing).onChange(async (value) => {
         this.plugin.settings.createDailyNoteIfMissing = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Daily note heading").setDesc("Links go under this heading wherever it sits; it's only appended at the end if missing.").addText(
+    new import_obsidian2.Setting(containerEl).setName("Daily note heading").setDesc("Links go under this heading wherever it sits; it's only appended at the end if missing.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.dailyNoteHeading).setValue(this.plugin.settings.dailyNoteHeading).onChange(async (value) => {
         this.plugin.settings.dailyNoteHeading = value.trim() || DEFAULT_SETTINGS.dailyNoteHeading;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Placement marker").setDesc("If present in the daily note (e.g. from your template), links are inserted right after it, taking priority over the heading. Empty disables.").addText(
+    new import_obsidian2.Setting(containerEl).setName("Placement marker").setDesc("If present in the daily note (e.g. from your template), links are inserted right after it, taking priority over the heading. Empty disables.").addText(
       (text) => text.setPlaceholder(DEFAULT_SETTINGS.dailyNoteMarker).setValue(this.plugin.settings.dailyNoteMarker).onChange(async (value) => {
         this.plugin.settings.dailyNoteMarker = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Triggers, factors & dashboard").setHeading();
-    new import_obsidian.Setting(containerEl).setName("Known triggers").setDesc("One per line; shown as one-tap chips in quick capture and auto-grown from it.").addTextArea((text) => {
+    new import_obsidian2.Setting(containerEl).setName("Triggers, factors & dashboard").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Known triggers").setDesc("One per line; shown as one-tap chips in quick capture and auto-grown from it.").addTextArea((text) => {
       text.setPlaceholder("crowds\nloud noise\nschedule change").setValue(this.plugin.settings.knownTriggers.join("\n")).onChange(async (value) => {
         this.plugin.settings.knownTriggers = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
         await this.plugin.saveSettings();
       });
       text.inputEl.rows = 6;
     });
-    new import_obsidian.Setting(containerEl).setName("Known factors").setDesc("Background contributors \u2014 sleep, food, environment. One per line; shown as chips in quick capture and auto-grown from it.").addTextArea((text) => {
+    new import_obsidian2.Setting(containerEl).setName("Known factors").setDesc("Background contributors \u2014 sleep, food, environment. One per line; shown as chips in quick capture and auto-grown from it.").addTextArea((text) => {
       text.setPlaceholder("poor sleep\nlittle food today\nloud environment").setValue(this.plugin.settings.knownFactors.join("\n")).onChange(async (value) => {
         this.plugin.settings.knownFactors = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
         await this.plugin.saveSettings();
       });
       text.inputEl.rows = 6;
     });
-    new import_obsidian.Setting(containerEl).setName("Sensory sensitivities").setDesc("Your maintained list of problematic sensory inputs \u2014 its own dataset, separate from triggers. One per line; shown as chips in quick capture and auto-grown from it.").addTextArea((text) => {
+    new import_obsidian2.Setting(containerEl).setName("Sensory sensitivities").setDesc("Your maintained list of problematic sensory inputs \u2014 its own dataset, separate from triggers. One per line; shown as chips in quick capture and auto-grown from it.").addTextArea((text) => {
       text.setPlaceholder("bright / fluorescent light\nloud noise\nclothing texture / tags").setValue(this.plugin.settings.knownSensory.join("\n")).onChange(async (value) => {
         this.plugin.settings.knownSensory = value.split("\n").map((t) => t.trim()).filter((t) => t.length > 0);
         await this.plugin.saveSettings();
       });
       text.inputEl.rows = 8;
     });
-    new import_obsidian.Setting(containerEl).setName("Heatmap range (weeks)").setDesc("How many weeks of history the dashboard heatmap shows.").addSlider(
+    new import_obsidian2.Setting(containerEl).setName("Heatmap range (weeks)").setDesc("How many weeks of history the dashboard heatmap shows.").addSlider(
       (slider) => slider.setLimits(8, 52, 1).setValue(this.plugin.settings.heatmapWeeks).setDynamicTooltip().onChange(async (value) => {
         this.plugin.settings.heatmapWeeks = value;
         await this.plugin.saveSettings();
@@ -153,7 +202,7 @@ var SpiralLoggerSettingTab = class extends import_obsidian.PluginSettingTab {
 };
 
 // src/quickCapture.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/types.ts
 var ENTRY_TYPE = "spiral-entry";
@@ -181,21 +230,21 @@ function splitList(value) {
 }
 
 // src/store.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 function yamlScalar(value) {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ")}"`;
 }
-function yamlText(key, value) {
+function yamlText(key2, value) {
   if (/\r?\n/.test(value)) {
     const body = value.split(/\r?\n/).map((line) => `  ${line}`).join("\n");
-    return `${key}: |-
+    return `${key2}: |-
 ${body}`;
   }
-  return `${key}: ${yamlScalar(value)}`;
+  return `${key2}: ${yamlScalar(value)}`;
 }
-function yamlList(key, values) {
-  if (values.length === 0) return `${key}: []`;
-  return `${key}:
+function yamlList(key2, values) {
+  if (values.length === 0) return `${key2}: []`;
+  return `${key2}:
 ` + values.map((v) => `  - ${yamlScalar(v)}`).join("\n");
 }
 function buildEntryContent(data) {
@@ -236,7 +285,7 @@ ${text.trim()}
 `;
 }
 async function ensureFolder(app, path) {
-  const normalized = (0, import_obsidian2.normalizePath)(path);
+  const normalized = (0, import_obsidian3.normalizePath)(path);
   if (!normalized || normalized === "/") return;
   if (app.vault.getAbstractFileByPath(normalized)) return;
   await app.vault.createFolder(normalized).catch(() => {
@@ -250,7 +299,7 @@ async function createUniqueNote(app, folder, basename, content) {
   const base = sanitizeFilename(basename);
   for (let i = 0; i < 1e3; i++) {
     const name = i === 0 ? base : `${base} ${i + 1}`;
-    const path = (0, import_obsidian2.normalizePath)(`${folder}/${name}.md`);
+    const path = (0, import_obsidian3.normalizePath)(`${folder}/${name}.md`);
     if (!app.vault.getAbstractFileByPath(path)) {
       return await app.vault.create(path, content);
     }
@@ -328,8 +377,8 @@ function valueCounts(entries, field) {
   const counts = /* @__PURE__ */ new Map();
   for (const entry of entries) {
     for (const t of splitList(field(entry))) {
-      const key = t.toLowerCase();
-      counts.set(key, ((_a = counts.get(key)) != null ? _a : 0) + 1);
+      const key2 = t.toLowerCase();
+      counts.set(key2, ((_a = counts.get(key2)) != null ? _a : 0) + 1);
     }
   }
   return Array.from(counts.entries()).map(([trigger, count]) => ({ trigger, count })).sort((a, b) => b.count - a.count || a.trigger.localeCompare(b.trigger));
@@ -345,7 +394,7 @@ function sensoryCounts(entries) {
 }
 
 // src/dailyNote.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 function getDailyNoteConfig(app) {
   var _a, _b, _c, _d, _e, _f, _g, _h;
   const anyApp = app;
@@ -361,16 +410,16 @@ async function dailyTemplateContent(app, templatePath, date, title) {
   const candidates = templatePath.endsWith(".md") ? [templatePath] : [`${templatePath}.md`, templatePath];
   let file = null;
   for (const candidate of candidates) {
-    const found = app.vault.getAbstractFileByPath((0, import_obsidian3.normalizePath)(candidate));
-    if (found instanceof import_obsidian3.TFile) {
+    const found = app.vault.getAbstractFileByPath((0, import_obsidian4.normalizePath)(candidate));
+    if (found instanceof import_obsidian4.TFile) {
       file = found;
       break;
     }
   }
   if (!file) return "";
   const raw = await app.vault.cachedRead(file);
-  const day = (0, import_obsidian3.moment)(date, "YYYY-MM-DD");
-  return raw.replace(/\{\{title\}\}/gi, title).replace(/\{\{date(?::([^}]+))?\}\}/gi, (_match, fmt) => day.format(fmt || "YYYY-MM-DD")).replace(/\{\{time(?::([^}]+))?\}\}/gi, (_match, fmt) => (0, import_obsidian3.moment)().format(fmt || "HH:mm"));
+  const day = (0, import_obsidian4.moment)(date, "YYYY-MM-DD");
+  return raw.replace(/\{\{title\}\}/gi, title).replace(/\{\{date(?::([^}]+))?\}\}/gi, (_match, fmt) => day.format(fmt || "YYYY-MM-DD")).replace(/\{\{time(?::([^}]+))?\}\}/gi, (_match, fmt) => (0, import_obsidian4.moment)().format(fmt || "HH:mm"));
 }
 function insertAtPlacement(content, marker, heading, line) {
   if (marker) {
@@ -411,8 +460,8 @@ async function linkInDailyNote(app, settings, date, time, file, label) {
   if (!settings.dailyNoteLinking) return;
   try {
     const config = getDailyNoteConfig(app);
-    const name = (0, import_obsidian3.moment)(date, "YYYY-MM-DD").format(config.format);
-    const path = (0, import_obsidian3.normalizePath)((config.folder ? config.folder + "/" : "") + name + ".md");
+    const name = (0, import_obsidian4.moment)(date, "YYYY-MM-DD").format(config.format);
+    const path = (0, import_obsidian4.normalizePath)((config.folder ? config.folder + "/" : "") + name + ".md");
     let daily = app.vault.getAbstractFileByPath(path);
     if (!daily) {
       if (!settings.createDailyNoteIfMissing) return;
@@ -420,7 +469,7 @@ async function linkInDailyNote(app, settings, date, time, file, label) {
       const initial = await dailyTemplateContent(app, config.template, date, name);
       daily = await app.vault.create(path, initial);
     }
-    if (!(daily instanceof import_obsidian3.TFile)) return;
+    if (!(daily instanceof import_obsidian4.TFile)) return;
     const linktext = app.metadataCache.fileToLinktext(file, daily.path);
     const line = `- ${time} [[${linktext}|${label}]]`;
     await app.vault.process(
@@ -433,7 +482,7 @@ async function linkInDailyNote(app, settings, date, time, file, label) {
 }
 
 // src/quickCapture.ts
-var QuickCaptureModal = class extends import_obsidian4.Modal {
+var QuickCaptureModal = class extends import_obsidian5.Modal {
   constructor(app, plugin) {
     super(app);
     this.kind = null;
@@ -454,7 +503,7 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     contentEl.addClass("ssl-capture");
     this.titleEl.setText("Log what's happening");
     const placeholderBtn = contentEl.createEl("button", { cls: "ssl-placeholder-btn" });
-    (0, import_obsidian4.setIcon)(placeholderBtn.createSpan({ cls: "ssl-btn-icon" }), "zap");
+    (0, import_obsidian5.setIcon)(placeholderBtn.createSpan({ cls: "ssl-btn-icon" }), "zap");
     placeholderBtn.createSpan({ text: "Just save a timestamped entry now" });
     placeholderBtn.addEventListener("click", () => {
       var _a, _b;
@@ -467,7 +516,7 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     const kindButtons = /* @__PURE__ */ new Map();
     for (const k of KINDS) {
       const btn = kindGrid.createEl("button", { cls: "ssl-kind-btn" });
-      (0, import_obsidian4.setIcon)(btn.createSpan({ cls: "ssl-btn-icon" }), k.icon);
+      (0, import_obsidian5.setIcon)(btn.createSpan({ cls: "ssl-btn-icon" }), k.icon);
       btn.createSpan({ text: k.label });
       kindButtons.set(k.value, btn);
       btn.addEventListener("click", () => {
@@ -517,22 +566,22 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
       this.selectedFactors,
       () => this.plugin.settings.knownFactors
     );
-    new import_obsidian4.Setting(body).setName("Warning signs").addText(
+    new import_obsidian5.Setting(body).setName("Warning signs").addText(
       (t) => t.setPlaceholder("what led up to it").onChange((v) => this.warningSigns = v)
     );
-    new import_obsidian4.Setting(body).setName("Thoughts").setDesc("The actual spiral content, if you want to capture it here.").addTextArea((t) => {
+    new import_obsidian5.Setting(body).setName("Thoughts").setDesc("The actual spiral content, if you want to capture it here.").addTextArea((t) => {
       t.setPlaceholder("whatever is going through your head").onChange((v) => this.thoughts = v);
       t.inputEl.rows = 3;
     });
-    new import_obsidian4.Setting(body).setName("Duration (minutes)").addText((t) => {
+    new import_obsidian5.Setting(body).setName("Duration (minutes)").addText((t) => {
       t.inputEl.type = "number";
       t.inputEl.inputMode = "numeric";
       t.setPlaceholder("0").onChange((v) => this.durationMin = Math.max(0, Number(v) || 0));
     });
-    new import_obsidian4.Setting(body).setName("Recovery notes").addText(
+    new import_obsidian5.Setting(body).setName("Recovery notes").addText(
       (t) => t.setPlaceholder("what helped").onChange((v) => this.recoveryNotes = v)
     );
-    new import_obsidian4.Setting(body).setName("Tags").setDesc("Comma-separated.").addText(
+    new import_obsidian5.Setting(body).setName("Tags").setDesc("Comma-separated.").addText(
       (t) => t.setPlaceholder("work, sensory").onChange((v) => this.tagsText = v)
     );
   }
@@ -585,7 +634,7 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     var _a, _b;
     if (this.saved) return;
     this.saved = true;
-    const now = (0, import_obsidian4.moment)();
+    const now = (0, import_obsidian5.moment)();
     const data = {
       date: now.format("YYYY-MM-DD"),
       time: now.format("HH:mm"),
@@ -609,11 +658,11 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
     } catch (e) {
       this.saved = false;
       console.error("Spiral & Shutdown Logger: failed to save entry", e);
-      new import_obsidian4.Notice("Couldn't save the entry \u2014 check the folder setting.");
+      new import_obsidian5.Notice("Couldn't save the entry \u2014 check the folder setting.");
     }
   }
   showSavedNotice(file) {
-    const notice = new import_obsidian4.Notice("", 6e3);
+    const notice = new import_obsidian5.Notice("", 6e3);
     notice.messageEl.setText("Logged. You're doing okay. ");
     const open = notice.messageEl.createEl("a", { text: "Open note" });
     open.addEventListener("click", () => {
@@ -627,8 +676,8 @@ var QuickCaptureModal = class extends import_obsidian4.Modal {
 };
 
 // src/thoughtCapture.ts
-var import_obsidian5 = require("obsidian");
-var ThoughtCaptureModal = class extends import_obsidian5.Modal {
+var import_obsidian6 = require("obsidian");
+var ThoughtCaptureModal = class extends import_obsidian6.Modal {
   constructor(app, plugin) {
     super(app);
     this.saved = false;
@@ -656,17 +705,17 @@ var ThoughtCaptureModal = class extends import_obsidian5.Modal {
       return;
     }
     this.saved = true;
-    const now = (0, import_obsidian5.moment)();
+    const now = (0, import_obsidian6.moment)();
     const date = now.format("YYYY-MM-DD");
     const time = now.format("HH:mm");
     try {
       const file = await createThoughtNote(this.app, this.plugin.settings, date, time, text);
       await linkInDailyNote(this.app, this.plugin.settings, date, time, file, `thoughts at ${time}`);
-      new import_obsidian5.Notice("Saved.");
+      new import_obsidian6.Notice("Saved.");
     } catch (e) {
       this.saved = false;
       console.error("Spiral & Shutdown Logger: failed to save thoughts", e);
-      new import_obsidian5.Notice("Couldn't save \u2014 check the thoughts folder setting.");
+      new import_obsidian6.Notice("Couldn't save \u2014 check the thoughts folder setting.");
       return;
     }
     if (closeAfter) this.close();
@@ -678,10 +727,10 @@ var ThoughtCaptureModal = class extends import_obsidian5.Modal {
 };
 
 // src/dashboard.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/charts.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var SVG_NS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs = {}, parent) {
   const el = document.createElementNS(SVG_NS, tag);
@@ -755,7 +804,7 @@ function renderHeatmap(parent, entries, weeks, tooltip) {
     "aria-label": "Calendar heatmap of logged entries"
   });
   scroller.appendChild(svg);
-  const today = (0, import_obsidian6.moment)().startOf("day");
+  const today = (0, import_obsidian7.moment)().startOf("day");
   const start = today.clone().startOf("isoWeek").subtract(weeks - 1, "weeks");
   const dayLabels = [
     { row: 0, text: "Mon" },
@@ -809,11 +858,11 @@ function renderHeatmap(parent, entries, weeks, tooltip) {
 }
 function renderSeverityTrend(parent, entries, weeks, widthPx, tooltip) {
   var _a;
-  const today = (0, import_obsidian6.moment)().startOf("day");
+  const today = (0, import_obsidian7.moment)().startOf("day");
   const startWeek = today.clone().startOf("isoWeek").subtract(weeks - 1, "weeks");
   const byWeek = /* @__PURE__ */ new Map();
   for (const e of entries) {
-    const m = (0, import_obsidian6.moment)(e.date, "YYYY-MM-DD").startOf("isoWeek");
+    const m = (0, import_obsidian7.moment)(e.date, "YYYY-MM-DD").startOf("isoWeek");
     const index = m.diff(startWeek, "weeks");
     if (index < 0 || index >= weeks) continue;
     const acc = (_a = byWeek.get(index)) != null ? _a : { sum: 0, count: 0 };
@@ -908,7 +957,7 @@ function renderTriggerBars(parent, counts, maxRows = 10) {
 }
 
 // src/export.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 function csvCell(value) {
   const s = String(value);
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
@@ -952,7 +1001,7 @@ function entriesToCsv(entries) {
 function buildSummaryMarkdown(entries) {
   var _a;
   const lines = [];
-  const generated = (0, import_obsidian7.moment)().format("YYYY-MM-DD HH:mm");
+  const generated = (0, import_obsidian8.moment)().format("YYYY-MM-DD HH:mm");
   lines.push("# Spiral & shutdown log \u2014 summary", "");
   lines.push(`Generated ${generated}. ${entries.length} entries total.`, "");
   if (entries.length === 0) return lines.join("\n");
@@ -1022,9 +1071,9 @@ function buildSummaryMarkdown(entries) {
 }
 async function writeExport(app, folder, filename, content) {
   await ensureFolder(app, folder);
-  const path = (0, import_obsidian7.normalizePath)(`${folder}/${filename}`);
+  const path = (0, import_obsidian8.normalizePath)(`${folder}/${filename}`);
   const existing = app.vault.getAbstractFileByPath(path);
-  if (existing instanceof import_obsidian7.TFile) {
+  if (existing instanceof import_obsidian8.TFile) {
     await app.vault.modify(existing, content);
     return existing;
   }
@@ -1032,21 +1081,21 @@ async function writeExport(app, folder, filename, content) {
 }
 async function exportCsv(app, settings) {
   const entries = getEntries(app);
-  const stamp = (0, import_obsidian7.moment)().format("YYYY-MM-DD");
+  const stamp = (0, import_obsidian8.moment)().format("YYYY-MM-DD");
   const file = await writeExport(app, settings.exportFolder, `spiral-log-${stamp}.csv`, entriesToCsv(entries));
-  new import_obsidian7.Notice(`Exported ${entries.length} entries to ${file.path}`);
+  new import_obsidian8.Notice(`Exported ${entries.length} entries to ${file.path}`);
 }
 async function exportSummary(app, settings) {
   const entries = getEntries(app);
-  const stamp = (0, import_obsidian7.moment)().format("YYYY-MM-DD");
+  const stamp = (0, import_obsidian8.moment)().format("YYYY-MM-DD");
   const file = await writeExport(app, settings.exportFolder, `spiral-log-summary-${stamp}.md`, buildSummaryMarkdown(entries));
   await app.workspace.openLinkText(file.path, "", true);
-  new import_obsidian7.Notice("Summary created \u2014 export to PDF via the note menu if needed.");
+  new import_obsidian8.Notice("Summary created \u2014 export to PDF via the note menu if needed.");
 }
 
 // src/dashboard.ts
 var DASHBOARD_VIEW_TYPE = "spiral-logger-dashboard";
-var DashboardView = class extends import_obsidian8.ItemView {
+var DashboardView = class extends import_obsidian9.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.tooltip = null;
@@ -1135,13 +1184,13 @@ var DashboardView = class extends import_obsidian8.ItemView {
     for (const thought of thoughts.slice(0, 6)) {
       const preview = await thoughtPreview(this.app, thought.file);
       const row = list.createEl("button", { cls: "ssl-recent-row" });
-      (0, import_obsidian8.setIcon)(row.createSpan({ cls: "ssl-btn-icon ssl-recent-icon" }), "pencil-line");
+      (0, import_obsidian9.setIcon)(row.createSpan({ cls: "ssl-btn-icon ssl-recent-icon" }), "pencil-line");
       const main = row.createDiv({ cls: "ssl-recent-main" });
       main.createDiv({
         cls: "ssl-recent-head"
       }).createSpan({
         cls: "ssl-recent-date",
-        text: `${(0, import_obsidian8.moment)(thought.date, "YYYY-MM-DD").format("ddd, MMM D")} \xB7 ${thought.time}`
+        text: `${(0, import_obsidian9.moment)(thought.date, "YYYY-MM-DD").format("ddd, MMM D")} \xB7 ${thought.time}`
       });
       main.createDiv({ cls: "ssl-thought-preview", text: preview || "(empty)" });
       row.addEventListener("click", () => {
@@ -1161,7 +1210,7 @@ var DashboardView = class extends import_obsidian8.ItemView {
     const row = root.createDiv({ cls: "ssl-actions" });
     const action = (icon, label, cls, onClick) => {
       const btn = row.createEl("button", { cls: `ssl-action-btn ${cls}` });
-      (0, import_obsidian8.setIcon)(btn.createSpan({ cls: "ssl-btn-icon" }), icon);
+      (0, import_obsidian9.setIcon)(btn.createSpan({ cls: "ssl-btn-icon" }), icon);
       btn.createSpan({ text: label });
       btn.addEventListener("click", onClick);
     };
@@ -1172,7 +1221,7 @@ var DashboardView = class extends import_obsidian8.ItemView {
   }
   renderStats(root, entries) {
     var _a, _b, _c, _d, _e;
-    const cutoff = (0, import_obsidian8.moment)().subtract(30, "days").format("YYYY-MM-DD");
+    const cutoff = (0, import_obsidian9.moment)().subtract(30, "days").format("YYYY-MM-DD");
     const recent = entries.filter((e) => e.date >= cutoff);
     const avg = recent.length > 0 ? (recent.reduce((sum, e) => sum + e.severity, 0) / recent.length).toFixed(1) : "\u2014";
     const topTrigger = (_b = (_a = triggerCounts(recent)[0]) == null ? void 0 : _a.trigger) != null ? _b : "\u2014";
@@ -1196,13 +1245,13 @@ var DashboardView = class extends import_obsidian8.ItemView {
     for (const entry of entries.slice(0, 10)) {
       const row = list.createEl("button", { cls: "ssl-recent-row" });
       const info = kindInfo(entry.kind);
-      (0, import_obsidian8.setIcon)(row.createSpan({ cls: "ssl-btn-icon ssl-recent-icon" }), info.icon);
+      (0, import_obsidian9.setIcon)(row.createSpan({ cls: "ssl-btn-icon ssl-recent-icon" }), info.icon);
       const main = row.createDiv({ cls: "ssl-recent-main" });
       const head = main.createDiv({ cls: "ssl-recent-head" });
       head.createSpan({ cls: "ssl-recent-kind", text: info.label });
       head.createSpan({
         cls: "ssl-recent-date",
-        text: `${(0, import_obsidian8.moment)(entry.date, "YYYY-MM-DD").format("ddd, MMM D")} \xB7 ${entry.time}`
+        text: `${(0, import_obsidian9.moment)(entry.date, "YYYY-MM-DD").format("ddd, MMM D")} \xB7 ${entry.time}`
       });
       const triggers = splitList(entry.trigger);
       if (triggers.length > 0) {
@@ -1230,13 +1279,14 @@ var DashboardView = class extends import_obsidian8.ItemView {
 };
 
 // src/main.ts
+var DAY = 864e5;
 function isoToday() {
   const d = /* @__PURE__ */ new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${day}`;
 }
-var SpiralLoggerPlugin = class extends import_obsidian9.Plugin {
+var SpiralLoggerPlugin = class extends import_obsidian10.Plugin {
   constructor() {
     super(...arguments);
     this.settings = DEFAULT_SETTINGS;
@@ -1257,12 +1307,41 @@ var SpiralLoggerPlugin = class extends import_obsidian9.Plugin {
         const today = isoToday();
         const entries = getEntries(this.app).filter((e) => e.date === today);
         return { date: today, count: entries.length };
-      }
+      },
+      /** 1.3+: counts only (no kinds, triggers or notes), for a dashboard card
+       * that may be seen by others. `last7` includes today. */
+      getCounts: () => {
+        const today = isoToday();
+        const d = new Date(Date.now() - 6 * DAY);
+        const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        let todayCount = 0;
+        let last7 = 0;
+        for (const e of getEntries(this.app)) {
+          if (e.date === today) todayCount++;
+          if (e.date >= from && e.date <= today) last7++;
+        }
+        return { date: today, today: todayCount, last7 };
+      },
+      /** 1.3+: called when entries may have changed. Returns an unsubscribe. */
+      onChange: (cb) => {
+        const refs = [this.app.metadataCache.on("changed", () => cb()), this.app.vault.on("delete", () => cb())];
+        return () => {
+          this.app.metadataCache.offref(refs[0]);
+          this.app.vault.offref(refs[1]);
+        };
+      },
+      /** 1.3+ */
+      openCapture: () => new QuickCaptureModal(this.app, this).open(),
+      /** 1.3+ */
+      openThoughts: () => new ThoughtCaptureModal(this.app, this).open(),
+      /** 1.3+ */
+      openDashboard: () => void this.activateDashboard()
     };
   }
   async onload() {
     await this.loadSettings();
     this.registerView(DASHBOARD_VIEW_TYPE, (leaf) => new DashboardView(leaf, this));
+    this.app.workspace.onLayoutReady(() => void openViewOnStartup(this.app, "spiral-shutdown-logger", DASHBOARD_VIEW_TYPE));
     this.addRibbonIcon("zap", "Log a spiral / shutdown entry", () => {
       new QuickCaptureModal(this.app, this).open();
     });
